@@ -1,0 +1,49 @@
+<!-- client/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Jeu en Ligne Multiplateforme</title>
+	<link rel="icon" type="image/x-icon" href="favicon.ico">
+	<link rel="stylesheet" type="text/css" href="./style.css" />
+</head>
+<body oncontextmenu="return false;"> <!-- disable right clic context menu -->
+
+	<div id="login-screen" >
+		<h2>Choisissez votre pseudo et votre équipe :</h2>
+		<form id="login-form">
+			<label for="username">Pseudo :</label>
+			<input type="text" id="username" required>
+			<div>
+				<label for="teamA">Equipe A</label>
+				<input type="radio" id="teamA" name="team" value="A" required>
+			</div>
+			<div>
+				<label for="teamB">Equipe B</label>
+				<input type="radio" id="teamB" name="team" value="B">
+			</div>
+			<button id="send-info-btn">Envoyer</button>
+			<button id="start-game-btn" disabled>Commencer la partie</button>
+		</form>
+		<div id="team-info">Equipes choisies par les autres joueurs :<br/><ul id="team-info-list"></ul></div>
+	</div>
+	<div id="game" style="display: none;">
+		<div id="map"></div>
+		<div id="playerContainer"></div>
+		<canvas id="shadowCanvas"></canvas>
+		<canvas id="gameCanvas"></canvas>
+		<div id="impactContainer"></div>
+		<div id="ammo-label" class="labels">Munitions</div>
+		<progress value="6" max="6" id="ammo"></progress>
+		<div id="life-label" class="labels">Life</div>
+		<progress value="5" max="5" id="lifepoints"></progress>
+	</div>
+	<div id="scores" style="display: none;">
+		
+	</div>
+ <!-- V2 <canvas id="game"></canvas> -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

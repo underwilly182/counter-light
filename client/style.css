@@ -1,0 +1,205 @@
+/* client/style.css */
+
+	body {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		padding: 0;
+		margin: 0;
+		height: 100vh;
+		background: linear-gradient(
+			0deg,
+			rgb(61, 117, 70) 0%,
+			rgb(120, 206, 135) 100%
+		);
+	}
+	#login-screen {
+
+	}
+	#scores {
+		width: 600px;
+		height: 500px;
+		position: absolute;
+		opacity: 0.7;
+		background-color: lightskyblue;
+		text-align: center;
+	}
+	#scores button {
+		opacity: 1;
+	}
+	#game {
+		cursor: crosshair;
+		display: grid;
+		background-color: darkgreen;
+		width: 600px;
+		height: 500px;
+		/* cursor: none; */
+	}
+	
+	#map {
+      width: 600px;
+      height: 400px;
+      background-color: lightgrey;
+		position: relative;
+		top: 100px;
+		left: 0;
+		grid-column: 1;
+		grid-row: 1;
+    }
+	#playerContainer {
+		width: 600px;
+		height: 400px;
+		position: relative;
+		top: 100px;
+		left: 0;
+		grid-column: 1;
+		grid-row: 1;
+		overflow: hidden;
+	}
+	#shadowCanvas {
+		width: 600px;
+		height: 400px;
+		position: relative;
+		top: 100px;
+		left: 0;
+		grid-column: 1;
+		grid-row: 1;
+	}
+	#gameCanvas {
+		width: 600px;
+		height: 400px;
+		position: relative;
+		top: 100px;
+		left: 0;
+		grid-column: 1;
+		grid-row: 1;
+	}
+	#impactContainer {
+		width: 600px;
+		height: 400px;
+		position: relative;
+		top: 100px;
+		left: 0;
+		grid-column: 1;
+		grid-row: 1;
+	}
+	
+
+.player2 {
+	position: absolute;
+	width: 20px;
+	height: 20px;
+}
+.player2 .player-name {
+	position: absolute;
+    top: -10px; 
+    width: 80px;
+	left: -30px;
+    text-align: center; /* Centrez le texte horizontalement */
+	font-family: Courier; 
+	font-size: 10px;
+	color: darkmagenta;
+}
+.player2.teamB .player-name {color: darkcyan; }
+.player2 .player-sprite { 
+	width: 20px;
+	height: 20px; 
+	background-image: url("./img/cop2.png"); 
+	background-size: 20px 20px; 
+}
+.player2.teamB .player-sprite { background-image: url("./img/cop3.png"); }
+.player2.shooting .player-sprite{
+	background-image: url("./img/cop2-fire.png");	
+}
+.player2.teamB.shooting .player-sprite{
+	background-image: url("./img/cop3-fire.png");	
+}
+.player2.hurt .player-sprite{
+	background-image: url("./img/cop2-hurt.png");	
+}
+.player2.teamB.hurt .player-sprite{
+	background-image: url("./img/cop3-hurt.png");	
+}
+
+
+.impact {
+	position: absolute;
+	background-image: url("./img/impact.png");
+	width: 12px;
+	height: 12px;
+	background-size: 12px 12px;
+	/* background-color: white; */
+}
+
+.labels {
+	font-size: 16px;
+	color: lightgray;
+	font-family: Courier;
+	text-align: center;
+	width: 100px;
+	height: 20px;
+	top:60px;
+	position:relative;
+	grid-column: 1;
+	grid-row: 1;
+}
+
+#ammo-label {
+
+}
+
+#life-label {
+	left:500px;
+}
+
+#lifepoints {
+	position: relative;
+	font-size: 40px;
+	top:80px;
+	left: 500px;
+	grid-column: 1;
+	grid-row: 1;
+}
+
+#ammo {
+	position: relative;
+	font-size: 40px;
+	top:80px;
+	left: 0;
+	grid-column: 1;
+	grid-row: 1;
+}
+
+progress[value]  {
+  /* Reset the default appearance */
+  -webkit-appearance: none;
+   appearance: none;
+
+  width: 100px;
+  height: 20px;
+}
+
+progress[value]::-webkit-progress-bar {
+  background-color: #eee;
+  border-radius: 2px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25) inset;
+}
+progress[value]#lifepoints::-webkit-progress-value {
+  background-color: green;
+
+    border-radius: 2px; 
+    background-size: 35px 20px, 100% 100%, 100% 100%;
+}
+progress[value = "2"]#lifepoints::-webkit-progress-value  , progress[value = "1"]#lifepoints::-webkit-progress-value  {
+  background-color: red;
+
+    border-radius: 2px; 
+    background-size: 35px 20px, 100% 100%, 100% 100%;
+}
+progress[value]#ammo::-webkit-progress-value {
+  background-color: darkblue;
+
+    border-radius: 2px; 
+    background-size: 35px 20px, 100% 100%, 100% 100%;
+}

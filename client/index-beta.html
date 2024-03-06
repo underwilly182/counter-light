@@ -1,0 +1,67 @@
+<!-- client/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Jeu en Ligne Multiplateforme</title>
+	<link rel="stylesheet" type="text/css" href="./style.css" />
+</head>
+<body oncontextmenu="return false;"> <!-- disable right clic context menu -->
+
+	<div id="login-screen" style="display: none;">
+		<h2>Choisissez votre pseudo et votre équipe :</h2>
+		<form id="login-form">
+			<label for="username">Pseudo :</label>
+			<input type="text" id="username" required>
+			<div>
+				<label for="teamA">Equipe A</label>
+				<input type="radio" id="teamA" name="team" value="A" required>
+			</div>
+			<div>
+				<label for="teamB">Equipe B</label>
+				<input type="radio" id="teamB" name="team" value="B">
+			</div>
+			<button id="send-info-btn">Envoyer</button>
+			<button id="start-game-btn" disabled>Commencer la partie</button>
+		</form>
+		<div id="team-info">Equipes choisies par les autres joueurs :<br/><ul id="team-info-list"></ul></div>
+	</div>
+	<div id="game">
+		<div id="map"></div>
+		<div id="playerContainer">
+			<div class="player2">
+				<div class="player-name">Willy</div>
+				<div class="player-sprite"></div>
+			</div>
+		</div>
+		<canvas id="shadowCanvas"></canvas>
+		<canvas id="gameCanvas"></canvas>
+		<div id="impactContainer"></div>
+		<div style="font-size: 16px;color: lightgray;font-family: Courier; text-align: center;width: 100px;height: 20px;top:60px;position:relative;grid-column: 1;grid-row: 1;">Munitions</div>
+		<progress value="6" max="6" id="ammo"></progress>
+		<div style="font-size: 16px;color: lightgray;font-family: Courier; text-align: center;width: 100px;height: 20px;top:60px;left:500px;position:relative;grid-column: 1;grid-row: 1;">Life</div>
+		<progress value="5" max="5" id="lifepoints"></progress>
+	</div>
+	<div id="scores" style="">
+		<h2>Scores</h2>
+		<h3></h3>
+		<table id="scores-table">
+			<thead>
+				<tr>
+					<th>Name</th>
+					<th>Hit</th>
+					<th>Kill</th>
+					<th>Friendly fire</th>
+					<th>Friendly kill</th>
+					<th>TOTAL SCORE</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+ <!-- V2 <canvas id="game"></canvas> -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
+  <script src="script2.js"></script>
+</body>
+</html>
