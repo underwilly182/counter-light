@@ -203,3 +203,38 @@ progress[value]#ammo::-webkit-progress-value {
     border-radius: 2px; 
     background-size: 35px 20px, 100% 100%, 100% 100%;
 }
+
+#reload {
+	position:absolute; 
+	left:50%; 
+	top:50%; 
+	transform: translate(-50%, -50%);
+	font-family: Courier
+}
+.blink {
+    -webkit-animation: blink 3s infinite both;
+            animation: blink 3s infinite both;
+}
+
+@-webkit-keyframes blink {
+  0%,
+  50%,
+  100% {
+    opacity: 1;
+  }
+  25%,
+  75% {
+    opacity: 0;
+  }
+}
+@keyframes blink {
+  0%,
+  50%,
+  100% {
+    opacity: 1;
+  }
+  25%,
+  75% {
+    opacity: 0;
+  }
+}

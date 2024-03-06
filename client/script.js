@@ -69,6 +69,76 @@ document.addEventListener('mousedown', () => {
 	else if(ammo == 0 && gameInProgress && living) {
 		// clic.load();
 		clic.cloneNode(true).play();
+		document.getElementById("reload").style.display = "block";
+	}
+});
+
+document.addEventListener('keyup', (event) => {
+	if (gameInProgress && living) {
+		switch (event.key) {
+			case 'z':
+				stopMovement('up');
+				break;
+			case 's':
+				stopMovement('down');
+				break;
+			case 'q':
+				stopMovement('left');
+				break;
+			case 'd':
+				stopMovement('right');
+				break;
+		}
+	}
+});
+		
+document.addEventListener('keydown', (event) => {
+	if (gameInProgress && living) {
+		switch (event.key) {
+			case 'z':
+			  startMovement('up');
+			  break;
+			case 's':
+			  startMovement('down');
+			  break;
+			case 'q':
+			  startMovement('left');
+			  break;
+			case 'd':
+			  startMovement('right');
+			  break;
+			case 'r':
+				//console.log("Reloading");
+				if (!reloading && ammo < 6) {
+					document.getElementById("reload").style.display = "none";
+					reloading = true;
+					// gun_reload.load();
+					gun_reload.cloneNode(true).play();
+					setTimeout(() => {
+						ammo = 6;
+						reloading = false;
+						ammoUpdate();
+						//console.log("Reloaded");
+					}, 1280); // 2 secondes de rechargement
+				}
+			  break;
+		}
+	}
+});
+
+document.addEventListener('mousemove', (event) => {
+	if (gameInProgress && living) {
+		// Envoyer un message au serveur avec la direction de rotation
+		// console.log('Page X :'+event.pageX);
+		// console.log('Game X :'+gameCanvas.offsetLeft);
+		// console.log('MX :'+mx);
+		const mx = event.pageX - gameCanvas.offsetLeft;
+		// console.log('Page Y :'+event.pageY);
+		// console.log('Game Y :'+gameCanvas.offsetTop);
+		// console.log('MY :'+my);
+		const my = event.pageY - gameCanvas.offsetTop;
+		//console.log(mx + " " + my);
+		socket.emit('rotate', mx, my); // +mouseposition
 	}
 });
 
@@ -104,74 +174,7 @@ socket.on('gameStarted', (players) => {
 		document.getElementById('lifepoints').value = 5;
 		// Masquer l'écran de connexion et afficher le contenu du jeu
 		document.getElementById('login-screen').style.display = 'none';
-		gameContainer.style.display = 'grid';
-		
-		document.addEventListener('keyup', (event) => {
-			if (gameInProgress && living) {
-				switch (event.key) {
-					case 'z':
-						stopMovement('up');
-						break;
-					case 's':
-						stopMovement('down');
-						break;
-					case 'q':
-						stopMovement('left');
-						break;
-					case 'd':
-						stopMovement('right');
-						break;
-				}
-			}
-		});
-		document.addEventListener('keydown', (event) => {
-			if (gameInProgress && living) {
-				switch (event.key) {
-					case 'z':
-					  startMovement('up');
-					  break;
-					case 's':
-					  startMovement('down');
-					  break;
-					case 'q':
-					  startMovement('left');
-					  break;
-					case 'd':
-					  startMovement('right');
-					  break;
-					case 'r':
-						//console.log("Reloading");
-						if (!reloading && ammo < 6) {
-							reloading = true;
-							// gun_reload.load();
-							gun_reload.cloneNode(true).play();
-							setTimeout(() => {
-								ammo = 6;
-								reloading = false;
-								ammoUpdate();
-								//console.log("Reloaded");
-							}, 1280); // 2 secondes de rechargement
-						}
-					  break;
-				}
-			}
-		});
-		document.addEventListener('mousemove', (event) => {
-			if (gameInProgress && living) {
-				// Envoyer un message au serveur avec la direction de rotation
-				// console.log('Page X :'+event.pageX);
-				// console.log('Game X :'+gameCanvas.offsetLeft);
-				// console.log('MX :'+mx);
-				const mx = event.pageX - gameCanvas.offsetLeft;
-				// console.log('Page Y :'+event.pageY);
-				// console.log('Game Y :'+gameCanvas.offsetTop);
-				// console.log('MY :'+my);
-				const my = event.pageY - gameCanvas.offsetTop;
-				//console.log(mx + " " + my);
-				socket.emit('rotate', mx, my); // +mouseposition
-			}
-		});
-		
+		gameContainer.style.display = 'grid';		
 	}
 	// V2 du mouvement côté serveur
 	// setInterval(updateFreq, 1000/60);
@@ -291,22 +294,6 @@ function stopMovement(direction) {
 	// V2 toggle
 	socket.emit('stop-move', direction);
 }
-
-/* function updateFreq() {
-	socket.emit('moveFreq', movement);
-} */
-
-// socket.on('updatePosition', ({ playerId, position }) => {
-	// const player = document.getElementById(playerId);
-	// player.style.left = position.x + 'px';
-	// player.style.top = position.y + 'px';
-	// if (playerId == pid) { /* pidX = position.x; pidY = position.y; */ refreshMaskView(position.x, position.y); }
-// });
-
-// socket.on('updateAngle', ({ playerId, angle }) => {
-	// const playerS = document.getElementById(playerId).lastChild;
-	// playerS.style.transform = `rotate(${angle}rad)`;
-// });
 
 socket.on('updateAnglesAndPositions', (players) => {
 	if (gameInProgress && living) {
