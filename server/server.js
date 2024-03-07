@@ -7,6 +7,8 @@ const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(server);
 
+const debug = true;
+
 const PORT = 3000;
 
 let nbPlayers = 0; // Nb de joueurs VIVANTS
@@ -17,7 +19,7 @@ let launcherId = 0;
 const players = {};
 const waiters = {};
 
-const maxLP = 5;
+const maxLP = 8;
 const maxAM = 6;
 
 const map = {
@@ -43,7 +45,7 @@ const obstacles = {
 app.use(express.static('client'));
 
 io.on('connection', (socket) => {
-	console.log('a user connected, socketId '+socket.id);
+	if (debug) console.log('a user connected, socketId '+socket.id);
 	
 	socket.join("next-game");
 	
@@ -88,7 +90,7 @@ io.on('connection', (socket) => {
 	});
 
 	socket.on('disconnect', () => {
-		console.log('user disconnected');
+		if (debug) console.log('user disconnected');
 		delete waiters[socket.id];
 		delete players[socket.id];
 		io.emit('updateTeams', Object.values(waiters));
@@ -96,7 +98,7 @@ io.on('connection', (socket) => {
 			nbPlayers -= 1;
 			io.emit('players', players);
 		// io.emit('updateTeams', Object.values(waiters));
-			console.log("Nbplayers alive "+nbPlayers);
+			if (debug) console.log("Nbplayers alive "+nbPlayers);
 			checkRemainingTeams();
 		}
 	});	
@@ -119,7 +121,7 @@ io.on('connection', (socket) => {
 	socket.on('playerJoin', ({ username, team }) => { // Soumission du form
 		waiters[socket.id] = {id: socket.id, username, team}; 
 		// players[socket.id] = player;
-		console.log(`${username} joined Team ${team} with ${socket.id}`);
+		if (debug) console.log(`${username} joined Team ${team} with ${socket.id}`);
 		// nbPlayers += 1;
 		// console.log(nbPlayers + " player(s)");
 		// io.emit('updateTeams', Object.values(players)); // Convertit l'objet en tableau pour l'envoi
@@ -142,7 +144,7 @@ io.on('connection', (socket) => {
 		nbPlayers = 0;
 		for (const waiterId in waiters) {
 			const waiter = waiters[waiterId];
-			console.log(waiter);
+			if (debug) console.log(waiter);
 			let player = {};
 				player = { id: waiter.id,
 					alive: true,
@@ -169,12 +171,12 @@ io.on('connection', (socket) => {
 			// delete waiters[waiterId];
 		}
 		
-		console.log(nbPlayers + " player(s)");
+		if (debug) console.log(nbPlayers + " player(s)");
 		io.emit('obstacles', obstacles);
 		// io.emit('PV', {maxLP, maxAM});
 		// console.log("Sending PV "+maxLP+" and Ammo "+maxAM);
 		io.emit('players', players);
-		console.log('Game started');
+		if (debug) console.log('Game started');
 		gameInProgress = true;
 		io.emit('gameStarted', players);
 		// D'autres actions pour démarrer le jeu peuvent être ajoutées ici
@@ -302,21 +304,21 @@ function adaptMoveToObstacles(playerId) {
 }
 
 function killPlayer(playerId) {
-	console.log("Killing "+playerId);
+	if (debug) console.log("Killing "+playerId);
 	players[playerId].alive = false;
 	nbPlayers -= 1;
 	io.emit('players', players);
 	// io.emit('updateTeams', Object.values(waiters));
-	console.log("Nbplayers alive "+nbPlayers);
+	if (debug) console.log("Nbplayers alive "+nbPlayers);
 	if (nbPlayers <= 1) {
-		console.log("LastKill -> Endgame");
+		if (debug) console.log("LastKill -> Endgame");
 	}
 	checkRemainingTeams();
 }
 
 function endGame(winningTeam) {
 	gameInProgress = false;
-	console.log("Game ended");
+	if (debug) console.log("Game ended");
 	io.emit('gameEnded', {players, launcherId, winningTeam});
 	// Putting back players in waiters list
 }
@@ -384,7 +386,7 @@ function fireBullet(px, py, mx, my, pid) {
 // Fonction pour vérifier s'il ne reste qu'une seule équipe active
 function checkRemainingTeams() {
   // Compter le nombre de joueurs actifs dans chaque équipe
-	console.log("check R Teams");
+	if (debug) console.log("check R Teams");
 	let teamCounts = { A: 0, B: 0 };
 
 	for (let playerId in players) {
@@ -393,15 +395,15 @@ function checkRemainingTeams() {
 			teamCounts[team]++;
 		}
 	}
-	console.log(teamCounts);
+	if (debug) console.log(teamCounts);
 
   // Vérifier s'il ne reste qu'une seule équipe active
 	let activeTeams = Object.keys(teamCounts).filter(team => teamCounts[team] > 0);
 	if (activeTeams.length === 2) {
-		console.log("Toujours 2 équipes en jeu");
+		if (debug) console.log("Toujours 2 équipes en jeu");
 	} else {
 		let winningTeam = activeTeams[0];
-		console.log(winningTeam+" won");
+		if (debug) console.log(winningTeam+" won");
 		endGame(winningTeam);
 	}
 }
