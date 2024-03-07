@@ -26,7 +26,10 @@
 			<button id="send-info-btn">Envoyer</button>
 			<button id="start-game-btn" disabled>Commencer la partie</button>
 		</form>
-		<div id="team-info">Equipes choisies par les autres joueurs :<br/><ul id="team-info-list"></ul></div>
+		<div id="team-info">Equipes choisies par les autres joueurs :<br/>
+			<ul id="team-info-listA"></ul>
+			<ul id="team-info-listB"></ul>
+		</div>
 	</div>
 	<div id="game" style="display: none;">
 		<div id="map"></div>
@@ -40,7 +43,7 @@
 		<progress value="5" max="5" id="lifepoints"></progress>
 	</div>
 	<div id="scores" style="display: none;"></div>
-	<div id="reload" class="blink" style="display: none;">Press R to reload</div>
+	<div id="reload" class="blink" style="display: none;">Press R to reload !</div>
  <!-- V2 <canvas id="game"></canvas> -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
   <script src="script.js"></script>

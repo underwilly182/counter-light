@@ -6,7 +6,8 @@ const loginForm = document.getElementById('login-form');
 const startGameBtn = document.getElementById('start-game-btn');
 const sendInfoBtn = document.getElementById('send-info-btn');
 const teamInfoDiv = document.getElementById('team-info');
-const teamInfoList = document.getElementById('team-info-list');
+const teamInfoListA = document.getElementById('team-info-listA');
+const teamInfoListB = document.getElementById('team-info-listB');
 const gameContainer = document.getElementById('game');
 
 const canvas = document.getElementById('gameCanvas');
@@ -19,10 +20,12 @@ canvas.height = 400;
 canvasS.height = 400;
 let pid = "";
 
+const debug = true;
+
 let gameInProgress = false;
 let living = false;
 let reloading = false;
-let ammo = 6;
+let ammo = 0;
 
 	let bang = new Audio('../snd/gunshot-sound-effect.mp3');
 	bang.load();
@@ -54,7 +57,7 @@ document.addEventListener('mousedown', () => {
 		// Réduire le nombre de munitions
 		ammo--;
 		ammoUpdate();
-		console.log("Ammo -1");
+		if (debug) console.log("Ammo -1");
 		// déplacer ça dans socket.on'shotHeard'
 		// bang.load();
 		bang.cloneNode(true).play();
@@ -143,10 +146,14 @@ document.addEventListener('mousemove', (event) => {
 });
 
 socket.on('updateTeams', (teams) => {
-	teamInfoList.innerHTML = '';
+	teamInfoListA.innerHTML = '';
+	teamInfoListB.innerHTML = '';
 	//teamInfoDiv.innerHTML = 'Equipes choisies par les autres joueurs :<br>';
 	teams.forEach(({ username, team }) => {
-		teamInfoList.innerHTML += `<li class="${team}">${username} - ${team}</li>`;
+		if (team == "A")
+			teamInfoListA.innerHTML += `<li class="${team}">${username} - ${team}</li>`;
+		else
+			teamInfoListB.innerHTML += `<li class="${team}">${username} - ${team}</li>`;
 	});
 });
 
@@ -161,7 +168,7 @@ socket.on('connectionError', (errorMessage) => {
 });
 
 startGameBtn.addEventListener('click', () => {
-	console.log("Let's go!");
+	if (debug) console.log("Let's go!");
 	socket.emit('startGame');
 });
 
@@ -169,9 +176,10 @@ socket.on('gameStarted', (players) => {
 	if (players[socket.id]) {
 		living = true;
 		gameInProgress = true;
-		ammo = 6;
+		ammo = players[socket.id].ammo;
 		ammoUpdate();
-		document.getElementById('lifepoints').value = 5;
+		document.getElementById('lifepoints').max = players[socket.id].lifepoints;
+		document.getElementById('lifepoints').value = players[socket.id].lifepoints;
 		// Masquer l'écran de connexion et afficher le contenu du jeu
 		document.getElementById('login-screen').style.display = 'none';
 		gameContainer.style.display = 'grid';		
@@ -188,7 +196,7 @@ socket.on('gameEnded', ({players, launcherId, winningTeam}) => {
 });
 
 socket.on('relaunchForAll', () => {
-	console.log("Relaunch for all!");
+	if (debug) console.log("Relaunch for all!");
 	document.getElementById("scores").style.display = "none";
 	gameContainer.style.display = 'none';
 	document.getElementById('login-screen').style.display = "block";
@@ -203,15 +211,17 @@ socket.on('disconnect', () => {
 	location.reload();
 });
 
-socket.on('PV', ({lifepoints, ammoR}) => {
-	console.log("ammoR "+ammoR);
-	console.log("lifepoints "+lifepoints);
+/* socket.on('PV', ({lifepoints, ammoR}) => {
+	if (debug) console.log("ammoR "+ammoR);
+	if (debug) console.log("lifepoints "+lifepoints);
 	ammo = ammoR;
 	const lifeContainer = document.getElementById('lifepoints');
 	lifeContainer.value = lifepoints;
+	lifeContainer.max = lifepoints;
 	const ammoContainer = document.getElementById('ammo');
 	ammoContainer.value = ammo;
-});
+	ammoContainer.max = ammo;
+}); */
 
 socket.on('obstacles', (obstacles) => {
 	// console.log("obstacles received");
@@ -253,7 +263,7 @@ socket.on('players', (players) => {
 });
 
 socket.on('shot', (playerId) => {
-  console.log(`Joueur ${playerId} a tiré !`);
+  if (debug) console.log(`Joueur ${playerId} a tiré !`);
   // Ajouter ici le code pour gérer l'affichage des tirs dans le jeu
 });
 
@@ -264,7 +274,10 @@ socket.on('updateHealth', ({playerId, health}) => {
 			// console.log(":( Been shot");
 			const lifeContainer = document.getElementById('lifepoints');
 			lifeContainer.value = health;
-			if (health == 0) {living = false;console.log("Aouch je suis mort");}
+			if (health == 0) {
+				living = false;
+				if (debug) console.log("Aouch je suis mort");
+			}
 		}
 		if (health > 0) {
 			cellElement = document.getElementById(playerId);
@@ -275,7 +288,7 @@ socket.on('updateHealth', ({playerId, health}) => {
 });
 
 socket.on('gameOver', (remainingTeams) => {
-  console.log('Fin de la partie ! Résultats :', remainingTeams);
+  if (debug) console.log('Fin de la partie ! Résultats :', remainingTeams);
   // Ajouter ici le code pour afficher les résultats de la partie et proposer de rejouer
 });
 
@@ -428,6 +441,7 @@ function showScores(players, winningTeam) {
 	divScores.innerHTML = "<h2>Scores</h2><h3></h3><table id='scores-table'></table>";
 	const teamWon = divScores.getElementsByTagName("h3")[0];
 	teamWon.innerHTML = "Team "+winningTeam+" won the game !";
+	teamWon.classList.toggle("Bwon", (winningTeam == "B"));
 	const tabScores = document.getElementById("scores-table");
 	tabScores.innerHTML = "<thead><tr><th>Name</th><th>Hit</th><th>Kill</th><th>Friendly fire</th><th>Friendly kill</th><th>TOTAL SCORE</th></tr></thead><tbody></tbody>"; // Ne suffit pas, il faut reconstruire tout le divScores
 	for (const playerId in players) {

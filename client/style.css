@@ -13,6 +13,7 @@
 			rgb(61, 117, 70) 0%,
 			rgb(120, 206, 135) 100%
 		);
+		font-family: Courier;
 	}
 	#login-screen {
 
@@ -24,6 +25,11 @@
 		opacity: 0.7;
 		background-color: lightskyblue;
 		text-align: center;
+	}
+	#scores h3 {
+		color: darkmagenta;
+	}#scores h3.Bwon {
+		color: darkorange;
 	}
 	#scores button {
 		opacity: 1;
@@ -101,7 +107,7 @@
 	font-size: 10px;
 	color: darkmagenta;
 }
-.player2.teamB .player-name {color: darkcyan; }
+.player2.teamB .player-name {color: darkorange; }
 .player2 .player-sprite { 
 	width: 20px;
 	height: 20px; 
@@ -209,11 +215,14 @@ progress[value]#ammo::-webkit-progress-value {
 	left:50%; 
 	top:50%; 
 	transform: translate(-50%, -50%);
-	font-family: Courier
+	font-family: Courier;
+	color: white;
+	background-color: red;
+	font-weight: bold;
 }
 .blink {
-    -webkit-animation: blink 3s infinite both;
-            animation: blink 3s infinite both;
+    -webkit-animation: blink 1s infinite both;
+            animation: blink 1s infinite both;
 }
 
 @-webkit-keyframes blink {
@@ -237,4 +246,11 @@ progress[value]#ammo::-webkit-progress-value {
   75% {
     opacity: 0;
   }
+}
+
+#team-info-listA {
+	color: darkmagenta;
+}
+#team-info-listB {
+	color: darkorange;
 }
