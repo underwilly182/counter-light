@@ -68,11 +68,14 @@ document.addEventListener('mousedown', () => {
 		ctx.stroke(); */
 		//fin debug
 		socket.emit('shoot', { mouseX, mouseY});
+		if (ammo == 0 && gameInProgress && living) {
+			document.getElementById("reload").style.display = "block";
+		}
 	}
 	else if(ammo == 0 && gameInProgress && living) {
 		// clic.load();
 		clic.cloneNode(true).play();
-		document.getElementById("reload").style.display = "block";
+		// document.getElementById("reload").style.display = "block";
 	}
 });
 
@@ -247,7 +250,7 @@ socket.on('players', (players) => {
 	//const mapContainer = document.getElementById('map');
 	const playerContainer = document.getElementById('playerContainer');
 	playerContainer.innerHTML = ''; // Efface le contenu précédent
-	//console.log(players);
+	if (debug) console.log(players);
 	for (const playerId in players) {
 		const player = players[playerId];
 		if (player.alive) {
@@ -256,6 +259,17 @@ socket.on('players', (players) => {
 			cellElement.classList.add('player2');
 			cellElement.classList.add('team'+player.team);
 			cellElement.innerHTML = "<div class='player-name'>"+player.username+"</div><div class='player-sprite'></div>";
+			playerContainer.appendChild(cellElement);
+		}
+		else {
+			const cellElement = document.createElement('div');
+			cellElement.classList.add('player2');
+			cellElement.classList.add('team'+player.team);
+			cellElement.classList.add('dead');
+			cellElement.style.left = player.x + 'px';
+			cellElement.style.top = player.y + 'px';
+			cellElement.style.transform = `rotate(${players[playerId].angle}rad)`;
+			cellElement.innerHTML = "<div class='player-sprite'></div>";
 			playerContainer.appendChild(cellElement);
 		}
 	};

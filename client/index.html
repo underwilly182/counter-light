@@ -23,13 +23,17 @@
 				<label for="teamB">Equipe B</label>
 				<input type="radio" id="teamB" name="team" value="B">
 			</div>
-			<button id="send-info-btn">Envoyer</button>
+			<button id="send-info-btn">Envoyer</button><br/>
 			<button id="start-game-btn" disabled>Commencer la partie</button>
 		</form>
-		<div id="team-info">Equipes choisies par les autres joueurs :<br/>
+		<div id="team-info">Equipes choisies par les joueurs :<br/>
+			<span style="color: darkmagenta;">Team A</span>
 			<ul id="team-info-listA"></ul>
+			<hr/>
+			<span style="color: darkorange;">Team B</span>
 			<ul id="team-info-listB"></ul>
 		</div>
+		<div id="how-to-play"></div>
 	</div>
 	<div id="game" style="display: none;">
 		<div id="map"></div>

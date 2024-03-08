@@ -115,6 +115,8 @@
 	background-size: 20px 20px; 
 }
 .player2.teamB .player-sprite { background-image: url("./img/cop3.png"); }
+.player2.dead .player-sprite { background-image: url("./img/cop2-dead.png"); }
+.player2.teamB.dead .player-sprite { background-image: url("./img/cop3-dead.png"); }
 .player2.shooting .player-sprite{
 	background-image: url("./img/cop2-fire.png");	
 }
@@ -248,9 +250,19 @@ progress[value]#ammo::-webkit-progress-value {
   }
 }
 
+#team-info {
+	margin-top:20px;
+	background-color: lightgrey;
+}
+
 #team-info-listA {
 	color: darkmagenta;
 }
 #team-info-listB {
 	color: darkorange;
+}
+#start-game-btn {
+	left: 50%;
+	position: relative;
+	transform: translate(-50%, 0);
 }
