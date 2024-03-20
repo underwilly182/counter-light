@@ -22,8 +22,10 @@ const waiters = {};
 const maxLP = 8;
 const maxAM = 6;
 
+const maxFramesHurt = 10;
+
 const map = {
-	width: 600,
+	width: 800,
 	height: 400
 };
 
@@ -40,6 +42,10 @@ const obstacles = {
 	7: {	x: 450,	y: 350, w: 100, h: 25 },
 	8: {	x: 25,	y: 175, w: 25, h: 100 },
 	9: {	x: 50,	y: 215, w: 75, h: 20 },
+	10: {	x: 0,	y: 0, w: 800, h: 1 }, //Ligne du haut
+	11: {	x: 0,	y: 0, w: 1, h: 400 }, // Ligne de gauche
+	12: {	x: 0,	y: 399, w: 800, h: 1 },// Ligne du bas
+	13: {	x: 799,	y: 0, w: 1, h: 400 }, // Ligne de droite
 };
 
 app.use(express.static('client'));
@@ -110,6 +116,7 @@ io.on('connection', (socket) => {
 			const py = player.y + 10;
 			const delX = mouseX - px;
 			const delY = mouseY - py;
+			
 			const DistPM = Math.sqrt(Math.pow(delX,2) + Math.pow(delY,2));
 			const ratio = mapDiag / DistPM;
 			const newX = px + ratio*delX;
@@ -153,7 +160,8 @@ io.on('connection', (socket) => {
 					size:20,
 					scores: { hit: 0, kill: 0, ff: 0, fk: 0},
 					username: waiter.username, 
-					team : waiter.team, 
+					team : waiter.team,
+					framesHurt: 0,
 					movement: { up: false, down: false, left: false, right: false },
 					angle: 0
 				};
@@ -262,9 +270,10 @@ setInterval(gameUpdate, 1000/60); // 60 fps ;)
 function gameUpdate() {
 	for (const playerId in players) {
 		if (players[playerId].alive) {
+			if (players[playerId].framesHurt > 0) players[playerId].framesHurt--;
 			updatePlayerPosition(playerId);
 		}
-		// Pas bon parce qu'à 2jours, on arrive à du 120fps... et à 3 c'est l'enfer
+		// Pas bon parce qu'à 2joueurs, on arrive à du 120fps... et à 3 c'est l'enfer
 		// io.emit('updateAngle', { playerId, angle: players[playerId].angle });
 		// io.emit('updatePosition', { playerId, position: { x: players[playerId].x, y: players[playerId].y } });	
 	}
@@ -324,6 +333,7 @@ function endGame(winningTeam) {
 }
 
 function fireBullet(px, py, mx, my, pid) {
+	
 	// foreach obstacles, foreach players
 	let odist = 10000;
 	let pdist = 10000;
@@ -356,6 +366,8 @@ function fireBullet(px, py, mx, my, pid) {
 					// console.log("Shot touched player "+playerId);
 					pdist=LR.dist; 
 					tpid= playerId;
+					hitX = LR.intX;
+					hitY = LR.intY;
 				}
 			}
 		}
@@ -363,15 +375,18 @@ function fireBullet(px, py, mx, my, pid) {
 	if (odist<pdist) {
 		//Obst shot
 		io.emit('obstTouched', {x: hitX, y: hitY});
+		io.emit("drawShoot", {px, py, hitX, hitY});
 	}
 	else if (odist>pdist) {
 		//Player shot
 		players[tpid].lifepoints -= 1;
+		players[tpid].framesHurt = maxFramesHurt;
 		if (players[tpid].team == players[pid].team) { players[pid].scores.ff += 1; }
 		else { players[pid].scores.hit += 1; }
 		lp = players[tpid].lifepoints;
 		// console.log("Sending updateHealth "+tpid+" "+lp);
 		io.emit('updateHealth', {playerId: tpid, health: lp});
+		io.emit("drawShoot", {px, py, hitX, hitY});
 		if (lp == 0) {
 			if (players[tpid].team == players[pid].team) { players[pid].scores.fk += 1; }
 			else { players[pid].scores.kill += 1; }
