@@ -26,7 +26,7 @@
 			<button id="send-info-btn">Envoyer</button><br/>
 			<button id="start-game-btn" disabled>Commencer la partie</button>
 		</form>
-		<div id="team-info">Equipes choisies par les joueurs :<br/>
+		<div id="team-info"><h3>Equipes choisies par les joueurs :</h3>
 			<span style="color: darkmagenta;">Team A</span>
 			<ul id="team-info-listA"></ul>
 			<hr/>
@@ -38,7 +38,9 @@
 	<div id="game" style="display: none;">
 		<div id="map"></div>
 		<div id="playerContainer"></div>
+		<canvas id="playerCanvas"></canvas>
 		<canvas id="shadowCanvas"></canvas>
+		<canvas id="shootCanvas"></canvas>
 		<canvas id="gameCanvas"></canvas>
 		<div id="impactContainer"></div>
 		<div id="ammo-label" class="labels">Munitions</div>

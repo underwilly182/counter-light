@@ -38,13 +38,13 @@
 		cursor: crosshair;
 		display: grid;
 		background-color: darkgreen;
-		width: 600px;
+		width: 800px;
 		height: 500px;
 		/* cursor: none; */
 	}
 	
 	#map {
-      width: 600px;
+      width: 800px;
       height: 400px;
       background-color: lightgrey;
 		position: relative;
@@ -54,7 +54,7 @@
 		grid-row: 1;
     }
 	#playerContainer {
-		width: 600px;
+		width: 800px;
 		height: 400px;
 		position: relative;
 		top: 100px;
@@ -63,8 +63,8 @@
 		grid-row: 1;
 		overflow: hidden;
 	}
-	#shadowCanvas {
-		width: 600px;
+	#shadowCanvas, #shootCanvas, #playerCanvas {
+		width: 800px;
 		height: 400px;
 		position: relative;
 		top: 100px;
@@ -73,7 +73,7 @@
 		grid-row: 1;
 	}
 	#gameCanvas {
-		width: 600px;
+		width: 800px;
 		height: 400px;
 		position: relative;
 		top: 100px;
@@ -82,7 +82,7 @@
 		grid-row: 1;
 	}
 	#impactContainer {
-		width: 600px;
+		width: 800px;
 		height: 400px;
 		position: relative;
 		top: 100px;
@@ -158,14 +158,14 @@
 }
 
 #life-label {
-	left:500px;
+	left: 700px;
 }
 
 #lifepoints {
 	position: relative;
 	font-size: 40px;
 	top:80px;
-	left: 500px;
+	left: 700px;
 	grid-column: 1;
 	grid-row: 1;
 }

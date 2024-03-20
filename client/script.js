@@ -12,27 +12,46 @@ const gameContainer = document.getElementById('game');
 
 const canvas = document.getElementById('gameCanvas');
 const canvasS = document.getElementById('shadowCanvas');
+const canvasShoot = document.getElementById('shootCanvas');
+const canvasPlayer = document.getElementById('playerCanvas');
 const ctx = canvas.getContext('2d');
 const ctxS = canvasS.getContext('2d');
-canvas.width = 600;
-canvasS.width = 600;
+const ctxShoot = canvasShoot.getContext('2d');
+const ctxPlayer = canvasPlayer.getContext('2d');
+canvas.width = 800;
+canvasS.width = 800;
+canvasShoot.width = 800;
+canvasPlayer.width = 800;
 canvas.height = 400;
 canvasS.height = 400;
+canvasShoot.height = 400;
+canvasPlayer.height = 400;
 let pid = "";
 
-const debug = true;
+const debug = false;
 
 let gameInProgress = false;
 let living = false;
 let reloading = false;
 let ammo = 0;
 
-	let bang = new Audio('../snd/gunshot-sound-effect.mp3');
+	let bang = new Audio('./snd/gunshot-sound-effect.mp3');
 	bang.load();
-	let gun_reload = new Audio('../snd/guncocking.mp3');
+	let gun_reload = new Audio('./snd/guncocking.mp3');
 	gun_reload.load();
-	let clic = new Audio('../snd/gunclick.mp3');
+	let clic = new Audio('./snd/gunclick.mp3');
 	clic.load();
+	
+	let imgImp = new Image();
+	imgImp.src = './img/impact.png';
+	let imgP2 = new Image();
+	imgP2.src = './img/cop2.png';
+		let imgP2Hurt = new Image();
+		imgP2Hurt.src = './img/cop2-hurt.png';
+	let imgP3 = new Image();
+	imgP3.src = './img/cop3.png';
+		let imgP3Hurt = new Image();
+		imgP3Hurt.src = './img/cop3-hurt.png';
 
 let obstaclesC = {};
 
@@ -52,8 +71,8 @@ document.addEventListener('mousedown', () => {
 		// cellElement = document.getElementById(pid);
 		// cellElement.classList.add('shooting');
 		// setTimeout(function() {  cellElement.classList.remove('shooting'); }, 100);
-		const mouseX = event.clientX - gameCanvas.offsetLeft;
-		const mouseY = event.clientY - gameCanvas.offsetTop;
+		const mouseX = event.clientX - canvas.offsetLeft;
+		const mouseY = event.clientY - canvas.offsetTop;
 		// Réduire le nombre de munitions
 		ammo--;
 		ammoUpdate();
@@ -138,11 +157,11 @@ document.addEventListener('mousemove', (event) => {
 		// console.log('Page X :'+event.pageX);
 		// console.log('Game X :'+gameCanvas.offsetLeft);
 		// console.log('MX :'+mx);
-		const mx = event.pageX - gameCanvas.offsetLeft;
+		const mx = event.pageX - canvas.offsetLeft;
 		// console.log('Page Y :'+event.pageY);
 		// console.log('Game Y :'+gameCanvas.offsetTop);
 		// console.log('MY :'+my);
-		const my = event.pageY - gameCanvas.offsetTop;
+		const my = event.pageY - canvas.offsetTop;
 		//console.log(mx + " " + my);
 		socket.emit('rotate', mx, my); // +mouseposition
 	}
@@ -245,35 +264,52 @@ socket.on('obstacles', (obstacles) => {
 	}
 });
 
+socket.on('drawShoot', ({px, py, hitX, hitY}) => {
+	if (debug) console.log("Have to drawShoot");
+	//ctxShoot.clearRect(0, 0, canvasShoot.width, canvasShoot.height);
+	ctxShoot.beginPath();
+	ctxShoot.moveTo(px, py);
+	ctxShoot.lineTo(hitX, hitY);
+	ctxShoot.strokeStyle = "orange";
+	ctxShoot.shadowColor = "red";
+	ctxShoot.shadowBlur = 10;
+	ctxShoot.stroke();
+});
+
+setInterval(clearShoot, 1000/10); // 10 fps pour le refresh du canvas des tirs ;)
+
+function clearShoot() {
+	ctxShoot.clearRect(0, 0, canvasShoot.width, canvasShoot.height);
+};
+
 socket.on('players', (players) => {
-	// TODO remplacer par une gestion avec un canvas de player ?
-	//const mapContainer = document.getElementById('map');
-	const playerContainer = document.getElementById('playerContainer');
-	playerContainer.innerHTML = ''; // Efface le contenu précédent
-	if (debug) console.log(players);
-	for (const playerId in players) {
-		const player = players[playerId];
-		if (player.alive) {
-			const cellElement = document.createElement('div');
-			cellElement.id = playerId;
-			cellElement.classList.add('player2');
-			cellElement.classList.add('team'+player.team);
-			cellElement.innerHTML = "<div class='player-name'>"+player.username+"</div><div class='player-sprite'></div>";
-			playerContainer.appendChild(cellElement);
-		}
-		else {
-			const cellElement = document.createElement('div');
-			cellElement.classList.add('player2');
-			cellElement.classList.add('team'+player.team);
-			cellElement.classList.add('dead');
-			cellElement.style.left = player.x + 'px';
-			cellElement.style.top = player.y + 'px';
-			cellElement.style.transform = `rotate(${players[playerId].angle}rad)`;
-			cellElement.innerHTML = "<div class='player-sprite'></div>";
-			playerContainer.appendChild(cellElement);
-		}
-	};
-	//playerC = players[pid];
+	// TODO remplacer par une gestion avec un canvas de player
+
+	// const playerContainer = document.getElementById('playerContainer');
+	// playerContainer.innerHTML = '';
+	// if (debug) console.log(players);
+	// for (const playerId in players) {
+		// const player = players[playerId];
+		// if (player.alive) {
+			// const cellElement = document.createElement('div');
+			// cellElement.id = playerId;
+			// cellElement.classList.add('player2');
+			// cellElement.classList.add('team'+player.team);
+			// cellElement.innerHTML = "<div class='player-name'>"+player.username+"</div><div class='player-sprite'></div>";
+			// playerContainer.appendChild(cellElement);
+		// }
+		// else {
+			// const cellElement = document.createElement('div');
+			// cellElement.classList.add('player2');
+			// cellElement.classList.add('team'+player.team);
+			// cellElement.classList.add('dead');
+			// cellElement.style.left = player.x + 'px';
+			// cellElement.style.top = player.y + 'px';
+			// cellElement.style.transform = `rotate(${players[playerId].angle}rad)`;
+			// cellElement.innerHTML = "<div class='player-sprite'></div>";
+			// playerContainer.appendChild(cellElement);
+		// }
+	// };
 });
 
 socket.on('shot', (playerId) => {
@@ -323,18 +359,37 @@ function stopMovement(direction) {
 }
 
 socket.on('updateAnglesAndPositions', (players) => {
+	ctxPlayer.clearRect(0, 0, canvasPlayer.width, canvasPlayer.height);
+	// ctxPlayer.beginPath();
 	if (gameInProgress && living) {
 		for (const playerId in players) {
 			if (players[playerId].alive) {
-				const player = document.getElementById(playerId);
-				player.style.left = players[playerId].x + 'px';
-				player.style.top = players[playerId].y + 'px';
-				if (playerId == pid) { /* pidX = position.x; pidY = position.y; */ refreshMaskView(players[playerId].x, players[playerId].y); }
-				const playerS = player.lastChild;
-				playerS.style.transform = `rotate(${players[playerId].angle}rad)`;
+				ctxPlayer.save();
+				ctxPlayer.translate(players[playerId].x+10,players[playerId].y+10);
+				ctxPlayer.rotate(players[playerId].angle);
+				if (players[playerId].team == "A") {
+					if (players[playerId].framesHurt > 0) ctxPlayer.drawImage(imgP2Hurt, -10, -10, 20, 20);
+					else ctxPlayer.drawImage(imgP2, -10, -10, 20, 20);
+				}
+				else {
+					if (players[playerId].framesHurt > 0) ctxPlayer.drawImage(imgP3Hurt, -10, -10, 20, 20);
+					else ctxPlayer.drawImage(imgP3, -10, -10, 20, 20);
+				}
+				ctxPlayer.restore();
+				// const player = document.getElementById(playerId);
+				// player.style.left = players[playerId].x + 'px';
+				// player.style.top = players[playerId].y + 'px';
+				if (playerId == pid) { 
+					/* pidX = position.x; pidY = position.y; */ 
+					refreshMaskView(players[playerId].x, players[playerId].y); 
+				}
+				// const playerS = player.lastChild;
+				// playerS.style.transform = `rotate(${players[playerId].angle}rad)`;
 			}
+			// Rajouter le dessin des joueurs morts
 		}
 	}
+	// ctxPlayer.clearRect(0, 0, ctxPlayer.width, ctxPlayer.height);
 });
 
 function refreshMaskView(px, py) {
@@ -427,21 +482,17 @@ function refreshMaskView(px, py) {
 	}
 }
 
-// Gérez l'événement 'projectileFired' côté client
-socket.on('projectileFired', (projectile) => {
-  // Ajoutez le projectile à la liste des projectiles
-  projectiles.push(projectile);
-});
-
 socket.on('obstTouched', ({x, y}) => {
 	// console.log("obstTouched " +x+ " " +y);
-	const gameContainer = document.getElementById('impactContainer');
-	const cellElement = document.createElement('div');
-	cellElement.classList.add('impact');
-	cellElement.style.top = y-6 + 'px';
-	cellElement.style.left = x-6 + 'px';
-	gameContainer.appendChild(cellElement);
-	setTimeout(() => {  gameContainer.removeChild(cellElement); }, 250);
+	ctxShoot.drawImage(imgImp, x-6, y-6, 12, 12);
+	if (debug) console.log("Draw impact");
+	// const impactContainer = document.getElementById('impactContainer');
+	// const cellElement = document.createElement('div');
+	// cellElement.classList.add('impact');
+	// cellElement.style.top = y-6 + 'px';
+	// cellElement.style.left = x-6 + 'px';
+	// impactContainer.appendChild(cellElement);
+	// setTimeout(() => {  impactContainer.removeChild(cellElement); }, 250);
 });
 
 function ammoUpdate() {
