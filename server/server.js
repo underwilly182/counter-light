@@ -46,7 +46,11 @@ const obstacles = {
 	11: {	x: 0,	y: 0, w: 1, h: 400 }, // Ligne de gauche
 	12: {	x: 0,	y: 399, w: 800, h: 1 },// Ligne du bas
 	13: {	x: 799,	y: 0, w: 1, h: 400 }, // Ligne de droite
+	14: {	x: 134,	y: 103, w: 43, h: 66 },
+	15: {	x: 445,	y: 141, w: 20, h: 109 },
+	16: {	x: 379,	y: 46, w: 147, h: 19 },
 };
+
 
 app.use(express.static('client'));
 
