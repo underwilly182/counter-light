@@ -62,7 +62,6 @@ const obstacles = {
 	27: {	x: 346,	y: 158, w: 39, h: 6 },
 	28: {	x: 346,	y: 237, w: 33, h: 5 },
 };
-};
 
 
 app.use(express.static('client'));
