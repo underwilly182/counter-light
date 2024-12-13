@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Chat App</title>
+  <style>
+	body, html {
+	  height: 100%;
+	  margin: 0;
+	  display: flex;
+	  justify-content: center;
+	  align-items: center;
+	  background-color: #f0f0f0;
+	}
+
+	#video-container {
+	  display: flex;
+	  flex-direction: column;
+	}
+
+	video {
+	  width: 90%;
+	  max-width: 500px;
+	  border-radius: 8px;
+	  margin-bottom: 10px;
+	}
+  </style>
+</head>
+<body>
+  <div id="video-container">
+    <video id="local-video" autoplay muted></video>
+    <video id="remote-video" autoplay></video>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
