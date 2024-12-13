@@ -2,6 +2,7 @@
 
 const express = require('express');
 const app = express();
+app.use(express.static('public'));
 const http = require('http');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
@@ -68,6 +69,29 @@ app.use(express.static('client'));
 
 io.on('connection', (socket) => {
 	if (debug) console.log('a user connected, socketId '+socket.id);
+	
+	//WebRTC
+	socket.on('join room', (roomId) => {
+		socket.join(roomId);
+		//console.log(`User ${socket.id} joined room ${roomId}`);
+	});
+
+	socket.on('offer', (offer, roomId) => {
+		socket.to(roomId).emit('offer', offer);
+	});
+
+	socket.on('answer', (answer, roomId) => {
+		socket.to(roomId).emit('answer', answer);
+	});
+
+	socket.on('ice candidate', (candidate, roomId) => {
+		socket.to(roomId).emit('ice candidate', candidate);
+	});
+
+	socket.on('disconnect', () => {
+		//console.log('User disconnected:', socket.id);
+	});
+	//WebRTC
 	
 	socket.join("next-game");
 	
@@ -153,11 +177,6 @@ io.on('connection', (socket) => {
 			socket.emit('enableStartButton');
 			launcherId = socket.id;
 		}
-		// 05/03
-			// io.emit('obstacles', obstacles);
-			// io.emit('PV', {lifepoints : maxLP, ammo : maxAM});
-			// io.emit('players', players);
-		
 	});
 
 	socket.on('startGame', () => {
@@ -186,7 +205,7 @@ io.on('connection', (socket) => {
 				player.y = 2;
 			}
 			else {
-				player.x = 600-22;
+				player.x = 800-22;
 				player.y = 400-22;
 			}
 			players[player.id] = player;
@@ -332,7 +351,7 @@ function killPlayer(playerId) {
 	if (debug) console.log("Killing "+playerId);
 	players[playerId].alive = false;
 	nbPlayers -= 1;
-	io.emit('players', players);
+	//io.emit('players', players);
 	// io.emit('updateTeams', Object.values(waiters));
 	if (debug) console.log("Nbplayers alive "+nbPlayers);
 	if (nbPlayers <= 1) {
@@ -374,7 +393,7 @@ function fireBullet(px, py, mx, my, pid) {
 	}
 	for (const playerId in players) {
 		const play = players[playerId];
-		if (playerId !== pid) {
+		if (playerId !== pid && players[playerId].alive) { // On ne shoote que les joueurs vivants
 			let LR = lineRect(mx,my,px,py, play.x,play.y,play.size,play.size);
 			let hit = LR.test;
 			if (hit) {
