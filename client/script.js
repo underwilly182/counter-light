@@ -48,10 +48,14 @@ let ammo = 0;
 	imgP2.src = './img/cop2.png';
 		let imgP2Hurt = new Image();
 		imgP2Hurt.src = './img/cop2-hurt.png';
+		let imgP2Dead = new Image();
+		imgP2Dead.src = './img/cop2-dead.png';
 	let imgP3 = new Image();
 	imgP3.src = './img/cop3.png';
 		let imgP3Hurt = new Image();
 		imgP3Hurt.src = './img/cop3-hurt.png';
+		let imgP3Dead = new Image();
+		imgP3Dead.src = './img/cop3-dead.png';
 
 let obstaclesC = {};
 
@@ -215,6 +219,7 @@ socket.on('gameEnded', ({players, launcherId, winningTeam}) => {
 	gameInProgress = false;
 	if (players[socket.id]) showScores(players, winningTeam);
 	if (pid == launcherId) printRelaunch();
+	document.getElementById("reload").style.display = "none";
 });
 
 socket.on('relaunchForAll', () => {
@@ -282,35 +287,6 @@ function clearShoot() {
 	ctxShoot.clearRect(0, 0, canvasShoot.width, canvasShoot.height);
 };
 
-socket.on('players', (players) => {
-	// TODO remplacer par une gestion avec un canvas de player
-
-	// const playerContainer = document.getElementById('playerContainer');
-	// playerContainer.innerHTML = '';
-	// if (debug) console.log(players);
-	// for (const playerId in players) {
-		// const player = players[playerId];
-		// if (player.alive) {
-			// const cellElement = document.createElement('div');
-			// cellElement.id = playerId;
-			// cellElement.classList.add('player2');
-			// cellElement.classList.add('team'+player.team);
-			// cellElement.innerHTML = "<div class='player-name'>"+player.username+"</div><div class='player-sprite'></div>";
-			// playerContainer.appendChild(cellElement);
-		// }
-		// else {
-			// const cellElement = document.createElement('div');
-			// cellElement.classList.add('player2');
-			// cellElement.classList.add('team'+player.team);
-			// cellElement.classList.add('dead');
-			// cellElement.style.left = player.x + 'px';
-			// cellElement.style.top = player.y + 'px';
-			// cellElement.style.transform = `rotate(${players[playerId].angle}rad)`;
-			// cellElement.innerHTML = "<div class='player-sprite'></div>";
-			// playerContainer.appendChild(cellElement);
-		// }
-	// };
-});
 
 socket.on('shot', (playerId) => {
   if (debug) console.log(`Joueur ${playerId} a tiré !`);
@@ -387,6 +363,18 @@ socket.on('updateAnglesAndPositions', (players) => {
 				// playerS.style.transform = `rotate(${players[playerId].angle}rad)`;
 			}
 			// Rajouter le dessin des joueurs morts
+			else {
+				ctxPlayer.save();
+				ctxPlayer.translate(players[playerId].x+10,players[playerId].y+10);
+				ctxPlayer.rotate(players[playerId].angle);
+				if (players[playerId].team == "A") {
+					ctxPlayer.drawImage(imgP2Dead, -10, -10, 20, 20);
+				}
+				else {
+					ctxPlayer.drawImage(imgP3Dead, -10, -10, 20, 20);
+				}
+				ctxPlayer.restore();
+			}
 		}
 	}
 	// ctxPlayer.clearRect(0, 0, ctxPlayer.width, ctxPlayer.height);
