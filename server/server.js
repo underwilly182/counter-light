@@ -110,6 +110,11 @@ app.use((req, res, next) => {
 });
 app.use(express.static('client', { dotfiles: 'ignore' }));
 
+// Raccourci : /demo -> page de démo (/demo.html)
+app.get('/demo', (req, res) => {
+	res.redirect('/demo.html');
+});
+
 io.on('connection', (socket) => {
 	if (debug) console.log('a user connected, socketId '+socket.id);
 	
