@@ -176,10 +176,14 @@ socket.on('updateTeams', (teams) => {
 	teamInfoListB.innerHTML = '';
 	//teamInfoDiv.innerHTML = 'Equipes choisies par les autres joueurs :<br>';
 	teams.forEach(({ username, team }) => {
+		// SÉCURITÉ : textContent empêche toute injection HTML via le pseudo (anti-XSS)
+		const li = document.createElement('li');
+		li.className = team;
+		li.textContent = `${username} - ${team}`;
 		if (team == "A")
-			teamInfoListA.innerHTML += `<li class="${team}">${username} - ${team}</li>`;
+			teamInfoListA.appendChild(li);
 		else
-			teamInfoListB.innerHTML += `<li class="${team}">${username} - ${team}</li>`;
+			teamInfoListB.appendChild(li);
 	});
 });
 
@@ -500,12 +504,13 @@ function showScores(players, winningTeam) {
 	for (const playerId in players) {
 		let row = tabScores.insertRow();
 		if (pid == playerId) row.style.fontWeight = "bold";
-		row.insertCell().innerHTML = players[playerId].username;
-		row.insertCell().innerHTML = players[playerId].scores.hit;
-		row.insertCell().innerHTML = players[playerId].scores.kill;
-		row.insertCell().innerHTML = players[playerId].scores.ff;
-		row.insertCell().innerHTML = players[playerId].scores.fk;
-		row.insertCell().innerHTML = players[playerId].scores.kill*5 + players[playerId].scores.hit - players[playerId].scores.ff*2 - players[playerId].scores.fk*10;
+		// SÉCURITÉ : textContent empêche toute injection HTML via le pseudo (anti-XSS)
+		row.insertCell().textContent = players[playerId].username;
+		row.insertCell().textContent = players[playerId].scores.hit;
+		row.insertCell().textContent = players[playerId].scores.kill;
+		row.insertCell().textContent = players[playerId].scores.ff;
+		row.insertCell().textContent = players[playerId].scores.fk;
+		row.insertCell().textContent = players[playerId].scores.kill*5 + players[playerId].scores.hit - players[playerId].scores.ff*2 - players[playerId].scores.fk*10;
 	}
 }
 
