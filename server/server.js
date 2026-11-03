@@ -35,6 +35,8 @@ let nbPlayers = 0; // Nb de joueurs VIVANTS
 let gameInProgress = false;
 let launcherId = 0;
 let demoStartedAt = 0; // Date de lancement de la partie démo en cours (0 = pas de démo)
+let voiceChatEnabled = false; // Chans vocaux activés par l'host pour la partie en cours
+const voiceRoster = { A: [], B: [] }; // Membres du chan vocal de chaque équipe
 
 // Ajoutez un objet pour stocker les points de vie des joueurs
 const players = {};
@@ -187,6 +189,14 @@ io.on('connection', (socket) => {
 		delete waiters[socket.id];
 		delete players[socket.id];
 		io.emit('updateTeams', Object.values(waiters));
+		// Chan vocal : le joueur parti est retiré du roster et de l'écoute de son équipe
+		for (const t of ['A', 'B']) {
+			const idx = voiceRoster[t].indexOf(socket.id);
+			if (idx !== -1) {
+				voiceRoster[t].splice(idx, 1);
+				socket.to('voice-'+t).emit('voice-peer-left', { id: socket.id });
+			}
+		}
 		if (gameInProgress && wasPlayer) {
 			nbPlayers -= 1;
 			io.emit('players', players);
@@ -230,7 +240,14 @@ io.on('connection', (socket) => {
 		}
 	});
 
-	socket.on('startGame', () => {
+	socket.on('startGame', ({ voiceChat } = {}) => {
+		// L'host peut activer les chans vocaux pour cette partie
+		voiceChatEnabled = (voiceChat === true);
+		voiceRoster.A = [];
+		voiceRoster.B = [];
+		for (const t of ['A', 'B']) {
+			try { io.in('voice-'+t).socketsLeave('voice-'+t); } catch (e) {}
+		}
 		for (const playerId in players) { // Reinit players, just in case
 			delete players[playerId];
 		}
@@ -274,6 +291,7 @@ io.on('connection', (socket) => {
 		if (debug) console.log('Game started');
 		gameInProgress = true;
 		io.emit('gameStarted', players);
+		io.emit('voiceChat', { enabled: voiceChatEnabled }); // lance (ou non) le chan vocal
 		// D'autres actions pour démarrer le jeu peuvent être ajoutées ici
 		
 	});
@@ -297,6 +315,43 @@ io.on('connection', (socket) => {
 		}
 		startDemo();
 	});
+
+	// ==================== Chan vocal d'équipe ====================
+	// Deux coéquipiers ne peuvent s'échanger de la signalisation que s'ils
+	// sont tous deux inscrits au chan vocal de la même équipe.
+	function sameVoiceTeam(id1, id2) {
+		return (voiceRoster.A.includes(id1) && voiceRoster.A.includes(id2)) ||
+		       (voiceRoster.B.includes(id1) && voiceRoster.B.includes(id2));
+	}
+
+	socket.on('voice-join', () => {
+		const player = players[socket.id];
+		if (!voiceChatEnabled || !gameInProgress || !player || !player.alive) return;
+		if (!VALID_TEAMS.includes(player.team)) return;
+		const room = 'voice-' + player.team;
+		if (!voiceRoster[player.team].includes(socket.id)) voiceRoster[player.team].push(socket.id);
+		socket.join(room);
+		// Le nouveau reçoit la liste des membres déjà présents (il lancera les offres)
+		socket.emit('voice-joined', { members: voiceRoster[player.team].filter(id => id !== socket.id) });
+		// Les membres déjà présents sont prévenus (ils répondront aux offres)
+		socket.to(room).emit('voice-peer-joined', { id: socket.id });
+	});
+
+	socket.on('voice-offer', ({ to, offer } = {}) => {
+		if (typeof to !== 'string' || !offer || typeof offer !== 'object' || !sameVoiceTeam(socket.id, to)) return;
+		socket.to(to).emit('voice-offer', { from: socket.id, offer: offer });
+	});
+
+	socket.on('voice-answer', ({ to, answer } = {}) => {
+		if (typeof to !== 'string' || !answer || typeof answer !== 'object' || !sameVoiceTeam(socket.id, to)) return;
+		socket.to(to).emit('voice-answer', { from: socket.id, answer: answer });
+	});
+
+	socket.on('voice-ice', ({ to, candidate } = {}) => {
+		if (typeof to !== 'string' || !candidate || typeof candidate !== 'object' || !sameVoiceTeam(socket.id, to)) return;
+		socket.to(to).emit('voice-ice', { from: socket.id, candidate: candidate });
+	});
+	// =============================================================
 	  		
 });
 
@@ -416,6 +471,10 @@ function killPlayer(playerId) {
 	if (debug) console.log("Killing "+playerId);
 	players[playerId].alive = false;
 	nbPlayers -= 1;
+	// Chan vocal : le joueur mort ne peut plus être entendu (il continue d'écouter)
+	if (voiceRoster.A.includes(playerId) || voiceRoster.B.includes(playerId)) {
+		io.emit('voice-mute', { id: playerId });
+	}
 	//io.emit('players', players);
 	// io.emit('updateTeams', Object.values(waiters));
 	if (debug) console.log("Nbplayers alive "+nbPlayers);
@@ -429,6 +488,10 @@ function endGame(winningTeam) {
 	gameInProgress = false;
 	if (debug) console.log("Game ended");
 	io.emit('gameEnded', {players, launcherId, winningTeam});
+	io.emit('voice-chat-end'); // fin du chan vocal
+	voiceRoster.A = [];
+	voiceRoster.B = [];
+	voiceChatEnabled = false;
 	// Putting back players in waiters list
 }
 
@@ -555,6 +618,10 @@ function startDemo() {
 		nbPlayers += 1;
 	}
 	demoStartedAt = Date.now();
+	voiceChatEnabled = false; // pas de chan vocal en démo
+	voiceRoster.A = [];
+	voiceRoster.B = [];
+	io.emit('voiceChat', { enabled: false });
 	io.emit('mapSize', { width: map.width, height: map.height });
 	io.emit('obstacles', obstacles);
 	io.emit('players', players);
@@ -567,6 +634,10 @@ function stopDemo() {
 	for (const playerId in players) delete players[playerId];
 	nbPlayers = 0;
 	gameInProgress = false;
+	voiceChatEnabled = false;
+	voiceRoster.A = [];
+	voiceRoster.B = [];
+	io.emit('voice-chat-end');
 }
 
 // Vrai ligne de vue : ni mur, ni coéquipier sur la trajectoire

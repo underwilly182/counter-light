@@ -215,6 +215,9 @@ socket.on('updateTeams', (teams) => {
 
 socket.on('enableStartButton', () => {
   startGameBtn.disabled = false;
+  // L'host (lanceur) peut activer les chans vocaux pour la partie
+  const voiceOption = document.getElementById('voice-chat-option');
+  if (voiceOption) voiceOption.style.display = 'block';
 });
 
 socket.on('connectionError', (errorMessage) => {
@@ -225,7 +228,9 @@ socket.on('connectionError', (errorMessage) => {
 
 startGameBtn.addEventListener('click', () => {
 	if (debug) console.log("Let's go!");
-	socket.emit('startGame');
+	// L'host transmet son choix de chans vocaux au lancement
+	const voiceSelect = document.getElementById('voice-chat-select');
+	socket.emit('startGame', { voiceChat: !!(voiceSelect && voiceSelect.value === 'yes') });
 });
 
 socket.on('gameStarted', (players) => {

@@ -25,6 +25,13 @@
 			</div>
 			<button id="send-info-btn">Envoyer</button><br/>
 			<button id="start-game-btn" disabled>Commencer la partie</button>
+			<div id="voice-chat-option" style="display: none;">
+				<label for="voice-chat-select">Chans vocaux :</label>
+				<select id="voice-chat-select">
+					<option value="no">Non</option>
+					<option value="yes">Oui</option>
+				</select>
+			</div>
 		</form>
 		<div id="team-info"><h3>Equipes choisies par les joueurs :</h3>
 			<span style="color: darkmagenta;">Team A</span>
@@ -53,5 +60,6 @@
  <!-- V2 <canvas id="game"></canvas> -->
   <script src="/socket.io/socket.io.js"></script><!-- SÉCURITÉ : socket.io servi localement (version 4.8.1 alignée sur le serveur, CDN 4.4.1 obsolète) -->
   <script src="script.js"></script>
+  <script src="voice.js"></script>
 </body>
 </html>
