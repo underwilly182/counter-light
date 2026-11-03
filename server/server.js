@@ -45,43 +45,59 @@ const maxAM = 6;
 const maxFramesHurt = 10;
 
 const map = {
-	width: 800,
-	height: 400
+	width: 1600, // x4 : 800 * 2
+	height: 800  // x4 : 400 * 2
 };
 
 const mapDiag = Math.sqrt(Math.pow(map.width,2) + Math.pow(map.height,2));
 
-const obstacles = {
-	0: {	x: 25, y: 25, w: 25, h: 100 },
-	1: {	x: 50, y: 25, w: 100, h: 25	},
-	2: {	x: 290,	y: 300,	w: 25, h: 100 },
-	3: {	x: 290,	y: 0, w: 25, h: 100 },
-	4: {	x: 165,	y: 25, w: 50, h: 25	},
-	5: {	x: 550,	y: 275, w: 25, h: 100 },
-	6: {	x: 250,	y: 150, w: 100, h: 100 },
-	7: {	x: 450,	y: 350, w: 100, h: 25 },
-	8: {	x: 25,	y: 175, w: 25, h: 100 },
-	9: {	x: 50,	y: 215, w: 75, h: 20 },
-	10: {	x: 0,	y: 0, w: 800, h: 1 }, //Ligne du haut
-	11: {	x: 0,	y: 0, w: 1, h: 400 }, // Ligne de gauche
-	12: {	x: 0,	y: 399, w: 800, h: 1 },// Ligne du bas
-	13: {	x: 799,	y: 0, w: 1, h: 400 }, // Ligne de droite
-	14: {	x: 134,	y: 103, w: 43, h: 66 },
-	15: {	x: 445,	y: 141, w: 20, h: 109 },
-	16: {	x: 379,	y: 46, w: 147, h: 19 },
-	17: {	x: 557,	y: 115, w: 55, h: 57 },
-	18: {	x: 667,	y: 38, w: 22, h: 84 },
-	19: {	x: 716,	y: 142, w: 44, h: 23 },
-	20: {	x: 577,	y: 0, w: 34, h: 51 },
-	21: {	x: 626,	y: 356, w: 28, h: 44 },
-	22: {	x: 131,	y: 347, w: 49, h: 54 },
-	23: {	x: 686,	y: 241, w: 114, h: 13 },
-	24: {	x: 616,	y: 239, w: 59, h: 10 },
-	25: {	x: 379,	y: 291, w: 37, h: 29 },
-	26: {	x: 505,	y: 287, w: 49, h: 4 },
-	27: {	x: 346,	y: 158, w: 39, h: 6 },
-	28: {	x: 346,	y: 237, w: 33, h: 5 },
-};
+// Layout de base d'un quadrant (800x400), dupliqué en 2x2 pour couvrir 1600x800
+const BASE_OBSTACLES = [
+	{ x: 25, y: 25, w: 25, h: 100 },
+	{ x: 50, y: 25, w: 100, h: 25 },
+	{ x: 290, y: 300, w: 25, h: 100 },
+	{ x: 290, y: 0, w: 25, h: 100 },
+	{ x: 165, y: 25, w: 50, h: 25 },
+	{ x: 550, y: 275, w: 25, h: 100 },
+	{ x: 250, y: 150, w: 100, h: 100 },
+	{ x: 450, y: 350, w: 100, h: 25 },
+	{ x: 25, y: 175, w: 25, h: 100 },
+	{ x: 50, y: 215, w: 75, h: 20 },
+	{ x: 134, y: 103, w: 43, h: 66 },
+	{ x: 445, y: 141, w: 20, h: 109 },
+	{ x: 379, y: 46, w: 147, h: 19 },
+	{ x: 557, y: 115, w: 55, h: 57 },
+	{ x: 667, y: 38, w: 22, h: 84 },
+	{ x: 716, y: 142, w: 44, h: 23 },
+	{ x: 577, y: 0, w: 34, h: 51 },
+	{ x: 626, y: 356, w: 28, h: 44 },
+	{ x: 131, y: 347, w: 49, h: 54 },
+	{ x: 686, y: 241, w: 114, h: 13 },
+	{ x: 616, y: 239, w: 59, h: 10 },
+	{ x: 379, y: 291, w: 37, h: 29 },
+	{ x: 505, y: 287, w: 49, h: 4 },
+	{ x: 346, y: 158, w: 39, h: 6 },
+	{ x: 346, y: 237, w: 33, h: 5 },
+];
+// Variations : ids de BASE_OBSTACLES ignorés par quadrant (0,0) (1,0) (0,1) (1,1)
+const QUAD_SKIPS = [ [], [23,24,26], [24,25], [9,19,27,28] ];
+const QUAD_W = 800, QUAD_H = 400;
+const obstacles = {};
+let obstId = 0;
+for (let qy = 0; qy < 2; qy++) {
+	for (let qx = 0; qx < 2; qx++) {
+		const skips = QUAD_SKIPS[qy * 2 + qx];
+		BASE_OBSTACLES.forEach((obst, idx) => {
+			if (skips.includes(idx)) return;
+			obstacles[obstId++] = { x: obst.x + qx * QUAD_W, y: obst.y + qy * QUAD_H, w: obst.w, h: obst.h };
+		});
+	}
+}
+// Bordures de la nouvelle carte
+obstacles[obstId++] = { x: 0, y: 0, w: map.width, h: 1 };              // ligne du haut
+obstacles[obstId++] = { x: 0, y: 0, w: 1, h: map.height };              // ligne de gauche
+obstacles[obstId++] = { x: 0, y: map.height - 1, w: map.width, h: 1 };  // ligne du bas
+obstacles[obstId++] = { x: map.width - 1, y: 0, w: 1, h: map.height };  // ligne de droite
 
 
 // En-têtes de sécurité HTTP
@@ -234,8 +250,8 @@ io.on('connection', (socket) => {
 				player.y = 2;
 			}
 			else {
-				player.x = 800-22;
-				player.y = 400-22;
+				player.x = map.width - 22;
+				player.y = map.height - 22;
 			}
 			players[player.id] = player;
 			nbPlayers += 1;
@@ -244,6 +260,7 @@ io.on('connection', (socket) => {
 		}
 		
 		if (debug) console.log(nbPlayers + " player(s)");
+		io.emit('mapSize', { width: map.width, height: map.height });
 		io.emit('obstacles', obstacles);
 		// io.emit('PV', {maxLP, maxAM});
 		// console.log("Sending PV "+maxLP+" and Ammo "+maxAM);
@@ -256,6 +273,7 @@ io.on('connection', (socket) => {
 	});
 	
 	socket.on("urgentObstacles", () => {
+		socket.emit("mapSize", { width: map.width, height: map.height });
 		socket.emit("obstacles", obstacles);
 	});
 	

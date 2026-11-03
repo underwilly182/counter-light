@@ -57,7 +57,20 @@ let ammo = 0;
 		let imgP3Dead = new Image();
 		imgP3Dead.src = './img/cop3-dead.png';
 
+// Carte 4x (1600x800) : le client n'affiche qu'une fenêtre 800x400 (caméra)
+let mapW = 800, mapH = 400;
+let camX = 0, camY = 0;
 let obstaclesC = {};
+// Le décor entier est dessiné une fois dans un canvas hors-écran
+const obstBuffer = document.createElement('canvas');
+const ctxB = obstBuffer.getContext('2d');
+
+socket.on('mapSize', ({ width, height }) => {
+	mapW = width;
+	mapH = height;
+	obstBuffer.width = mapW;
+	obstBuffer.height = mapH;
+});
 
 loginForm.addEventListener('submit', (event) => {
 	event.preventDefault();
@@ -75,8 +88,8 @@ document.addEventListener('mousedown', () => {
 		// cellElement = document.getElementById(pid);
 		// cellElement.classList.add('shooting');
 		// setTimeout(function() {  cellElement.classList.remove('shooting'); }, 100);
-		const mouseX = event.clientX - canvas.offsetLeft;
-		const mouseY = event.clientY - canvas.offsetTop;
+		const mouseX = event.clientX - canvas.offsetLeft + camX;
+		const mouseY = event.clientY - canvas.offsetTop + camY;
 		// Réduire le nombre de munitions
 		ammo--;
 		ammoUpdate();
@@ -161,11 +174,11 @@ document.addEventListener('mousemove', (event) => {
 		// console.log('Page X :'+event.pageX);
 		// console.log('Game X :'+gameCanvas.offsetLeft);
 		// console.log('MX :'+mx);
-		const mx = event.pageX - canvas.offsetLeft;
+		const mx = event.pageX - canvas.offsetLeft + camX;
 		// console.log('Page Y :'+event.pageY);
 		// console.log('Game Y :'+gameCanvas.offsetTop);
 		// console.log('MY :'+my);
-		const my = event.pageY - canvas.offsetTop;
+		const my = event.pageY - canvas.offsetTop + camY;
 		//console.log(mx + " " + my);
 		socket.emit('rotate', mx, my); // +mouseposition
 	}
@@ -259,23 +272,24 @@ socket.on('obstacles', (obstacles) => {
 	obstaclesC = obstacles;
 	pid = socket.id;
 	//console.log("Pid "+pid);
-	// const mapContainer = document.getElementById('map');
 	const img = new Image();
 	img.src = "./img/brick-wall.jpg";
-	//ctx.fillStyle="red";
 	img.onload = () => {
-	for (const obstacleId in obstacles) {
-		const obst = obstacles[obstacleId];
-		const pattern = ctx.createPattern(img, "repeat");
-		ctx.fillStyle = pattern;
-		ctx.fillRect(obst.x, obst.y, obst.w, obst.h);
-	}
-	}
+		ctxB.clearRect(0, 0, obstBuffer.width, obstBuffer.height);
+		const pattern = ctxB.createPattern(img, "repeat");
+		ctxB.fillStyle = pattern;
+		for (const obstacleId in obstacles) {
+			const obst = obstacles[obstacleId];
+			ctxB.fillRect(obst.x, obst.y, obst.w, obst.h);
+		}
+	};
 });
 
 socket.on('drawShoot', ({px, py, hitX, hitY}) => {
 	if (debug) console.log("Have to drawShoot");
 	//ctxShoot.clearRect(0, 0, canvasShoot.width, canvasShoot.height);
+	ctxShoot.save();
+	ctxShoot.translate(-camX, -camY);
 	ctxShoot.beginPath();
 	ctxShoot.moveTo(px, py);
 	ctxShoot.lineTo(hitX, hitY);
@@ -283,6 +297,7 @@ socket.on('drawShoot', ({px, py, hitX, hitY}) => {
 	ctxShoot.shadowColor = "red";
 	ctxShoot.shadowBlur = 10;
 	ctxShoot.stroke();
+	ctxShoot.restore();
 });
 
 setInterval(clearShoot, 1000/10); // 10 fps pour le refresh du canvas des tirs ;)
@@ -339,9 +354,20 @@ function stopMovement(direction) {
 }
 
 socket.on('updateAnglesAndPositions', (players) => {
+	ctxPlayer.setTransform(1, 0, 0, 1, 0, 0);
 	ctxPlayer.clearRect(0, 0, canvasPlayer.width, canvasPlayer.height);
-	// ctxPlayer.beginPath();
-	if (gameInProgress && living) {
+	if (gameInProgress && living && players[pid]) {
+		// Caméra centrée sur le joueur, bornée aux limites de la carte
+		camX = Math.max(0, Math.min(players[pid].x + 10 - canvas.width / 2, mapW - canvas.width));
+		camY = Math.max(0, Math.min(players[pid].y + 10 - canvas.height / 2, mapH - canvas.height));
+
+		// Décor : fenêtre caméra dans le monde
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.drawImage(obstBuffer, -camX, -camY);
+
+		// Joueurs (coordonnées monde + translation caméra)
+		ctxPlayer.translate(-camX, -camY);
 		for (const playerId in players) {
 			if (players[playerId].alive) {
 				ctxPlayer.save();
@@ -356,17 +382,11 @@ socket.on('updateAnglesAndPositions', (players) => {
 					else ctxPlayer.drawImage(imgP3, -10, -10, 20, 20);
 				}
 				ctxPlayer.restore();
-				// const player = document.getElementById(playerId);
-				// player.style.left = players[playerId].x + 'px';
-				// player.style.top = players[playerId].y + 'px';
 				if (playerId == pid) { 
-					/* pidX = position.x; pidY = position.y; */ 
 					refreshMaskView(players[playerId].x, players[playerId].y); 
 				}
-				// const playerS = player.lastChild;
-				// playerS.style.transform = `rotate(${players[playerId].angle}rad)`;
 			}
-			// Rajouter le dessin des joueurs morts
+			// Dessin des joueurs morts
 			else {
 				ctxPlayer.save();
 				ctxPlayer.translate(players[playerId].x+10,players[playerId].y+10);
@@ -381,7 +401,6 @@ socket.on('updateAnglesAndPositions', (players) => {
 			}
 		}
 	}
-	// ctxPlayer.clearRect(0, 0, ctxPlayer.width, ctxPlayer.height);
 });
 
 function refreshMaskView(px, py) {
@@ -389,7 +408,10 @@ function refreshMaskView(px, py) {
 	// Pour chaque obstacle
 	px = px + 10;
 	py = py + 10;
+	// Effacement en coordonnées écran, puis translation caméra pour dessiner en coordonnées monde
+	ctxS.setTransform(1, 0, 0, 1, 0, 0);
 	ctxS.clearRect(0, 0, canvasS.width, canvasS.height);
+	ctxS.translate(-camX, -camY);
 	const ch = canvasS.height;
 	const cw = canvasS.width;
 	for (const obstacleId in obstaclesC) {
@@ -400,70 +422,70 @@ function refreshMaskView(px, py) {
 		const m4 = (obst.y+obst.h-py) / (obst.x-px);
 		// V3 !!
 		ctxS.beginPath();
-		// Si tout l'obstacle est au-dessus, et à droite, on projete tout sur y=0 => m m2
+		// Si tout l'obstacle est au-dessus, et à droite, on projete tout sur le haut du viewport => m m2
 		if (obst.y < py && obst.y+obst.h < py && px < obst.x) {
 			ctxS.moveTo(obst.x, obst.y); //m
-			ctxS.lineTo(obst.x+(0-obst.y)/m, 0);
-			ctxS.lineTo(obst.x+obst.w+(0-obst.y-obst.h)/m2, 0);
+			ctxS.lineTo(obst.x+(camY-obst.y)/m, camY);
+			ctxS.lineTo(obst.x+obst.w+(camY-obst.y-obst.h)/m2, camY);
 			ctxS.lineTo(obst.x+obst.w, obst.y+obst.h); //m2
 			ctxS.lineTo(obst.x+obst.w, obst.y);
 		}
-		// Si tout l'obstacle est au-dessus, et à gauche, on projete tout sur y=0 => m3 m4
+		// Si tout l'obstacle est au-dessus, et à gauche, on projete tout sur le haut du viewport => m3 m4
 		else if (obst.y < py && obst.y+obst.h < py && px > obst.x+obst.w) {
 			ctxS.moveTo(obst.x+obst.w, obst.y); //m3
-			ctxS.lineTo(obst.x+obst.w+(0-obst.y)/m3, 0);
-			ctxS.lineTo(obst.x+(0-obst.y-obst.h)/m4, 0);
+			ctxS.lineTo(obst.x+obst.w+(camY-obst.y)/m3, camY);
+			ctxS.lineTo(obst.x+(camY-obst.y-obst.h)/m4, camY);
 			ctxS.lineTo(obst.x, obst.y+obst.h); //m4
 			ctxS.lineTo(obst.x, obst.y);
 		}
 		//Si l'obstacle est au dessus mais entre les 2 => m4 m2
 		else if (obst.y < py && obst.y+obst.h < py) {
 			ctxS.moveTo(obst.x, obst.y+obst.h); //m4
-			ctxS.lineTo(obst.x+(0-obst.y-obst.h)/m4, 0);
-			ctxS.lineTo(obst.x+obst.w+(0-obst.y-obst.h)/m2, 0);
+			ctxS.lineTo(obst.x+(camY-obst.y-obst.h)/m4, camY);
+			ctxS.lineTo(obst.x+obst.w+(camY-obst.y-obst.h)/m2, camY);
 			ctxS.lineTo(obst.x+obst.w, obst.y+obst.h); //m2
 			ctxS.lineTo(obst.x+obst.w, obst.y); //m3
 			ctxS.lineTo(obst.x, obst.y); //m
 		}
-		// Si tout l'obstacle est en-dessous, et à gauche, on projete tout sur y=ch =>m m2
+		// Si tout l'obstacle est en-dessous, et à gauche, on projete tout sur le bas du viewport =>m m2
 		else if (obst.y > py && obst.y+obst.h > py && px > obst.x+obst.w) {
 			ctxS.moveTo(obst.x, obst.y); //m
-			ctxS.lineTo(obst.x+(ch-obst.y)/m, ch);
-			ctxS.lineTo(obst.x+obst.w+(ch-obst.y-obst.h)/m2, ch);
+			ctxS.lineTo(obst.x+(camY+ch-obst.y)/m, camY+ch);
+			ctxS.lineTo(obst.x+obst.w+(camY+ch-obst.y-obst.h)/m2, camY+ch);
 			ctxS.lineTo(obst.x+obst.w, obst.y+obst.h); //m2
 			ctxS.lineTo(obst.x, obst.y+obst.h); //m4
 		}
-		// Si tout l'obstacle est en-dessous, et à droite, on projete tout sur y=ch =>m3 m4
+		// Si tout l'obstacle est en-dessous, et à droite, on projete tout sur le bas du viewport =>m3 m4
 		else if (obst.y > py && obst.y+obst.h > py && px < obst.x) {
 			ctxS.moveTo(obst.x+obst.w, obst.y); //m3
-			ctxS.lineTo(obst.x+obst.w+(ch-obst.y)/m3, ch);
-			ctxS.lineTo(obst.x+(ch-obst.y-obst.h)/m4, ch);
+			ctxS.lineTo(obst.x+obst.w+(camY+ch-obst.y)/m3, camY+ch);
+			ctxS.lineTo(obst.x+(camY+ch-obst.y-obst.h)/m4, camY+ch);
 			ctxS.lineTo(obst.x, obst.y+obst.h); //m4
 			ctxS.lineTo(obst.x+obst.w, obst.y+obst.h); //m2
 		}
 		//Si l'obstacle est en dessous mais entre les 2 => m m3
 		else if (obst.y > py && obst.y+obst.h > py) {
 			ctxS.moveTo(obst.x, obst.y); //m
-			ctxS.lineTo(obst.x+(ch-obst.y)/m, ch);
-			ctxS.lineTo(obst.x+obst.w+(ch-obst.y)/m3, ch);
+			ctxS.lineTo(obst.x+(camY+ch-obst.y)/m, camY+ch);
+			ctxS.lineTo(obst.x+obst.w+(camY+ch-obst.y)/m3, camY+ch);
 			ctxS.lineTo(obst.x+obst.w, obst.y); //m3
 			ctxS.lineTo(obst.x+obst.w, obst.y+obst.h); //m2
 			ctxS.lineTo(obst.x, obst.y+obst.h); //m4
 		}
-		//Si l'obstacle est à ma gauche à mihauteur => m3 sur 0, m2 sur ch ON DEVRAIT PROJETER SUR X0
+		//Si l'obstacle est à ma gauche à mihauteur => projection sur le bord gauche du viewport
 		else if (obst.x+obst.w < px) {
 			ctxS.moveTo(obst.x+obst.w, obst.y); //m3
-			ctxS.lineTo(0, m3*(0-obst.x-obst.w)+obst.y);
-			ctxS.lineTo(0, m2*(0-obst.x-obst.w)+obst.y+obst.h);
+			ctxS.lineTo(camX, m3*(camX-obst.x-obst.w)+obst.y);
+			ctxS.lineTo(camX, m2*(camX-obst.x-obst.w)+obst.y+obst.h);
 			ctxS.lineTo(obst.x+obst.w, obst.y+obst.h); //m2
 			ctxS.lineTo(obst.x, obst.y+obst.h); //m4
-			ctxS.lineTo(obst.x, obst.y); //m		
+			ctxS.lineTo(obst.x, obst.y); //m	
 		}
-		//Si l'obstacle est à ma droite à mihauteur => m sur 0, m4 sur ch
+		//Si l'obstacle est à ma droite à mihauteur => projection sur le bord droit du viewport
 		else {
 			ctxS.moveTo(obst.x, obst.y); //m
-			ctxS.lineTo(cw, m*(cw-obst.x)+obst.y);
-			ctxS.lineTo(cw, m4*(cw-obst.x)+obst.y+obst.h);
+			ctxS.lineTo(camX+cw, m*(camX+cw-obst.x)+obst.y);
+			ctxS.lineTo(camX+cw, m4*(camX+cw-obst.x)+obst.y+obst.h);
 			ctxS.lineTo(obst.x, obst.y+obst.h); //m4
 			ctxS.lineTo(obst.x+obst.w, obst.y+obst.h); //m2
 			ctxS.lineTo(obst.x+obst.w, obst.y); //m3
@@ -476,8 +498,11 @@ function refreshMaskView(px, py) {
 
 socket.on('obstTouched', ({x, y}) => {
 	// console.log("obstTouched " +x+ " " +y);
+	ctxShoot.save();
+	ctxShoot.translate(-camX, -camY);
 	ctxShoot.drawImage(imgImp, x-6, y-6, 12, 12);
 	if (debug) console.log("Draw impact");
+	ctxShoot.restore();
 	// const impactContainer = document.getElementById('impactContainer');
 	// const cellElement = document.createElement('div');
 	// cellElement.classList.add('impact');
