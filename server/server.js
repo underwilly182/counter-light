@@ -280,6 +280,12 @@ io.on('connection', (socket) => {
 	socket.on("relaunchGame", () => {
 		io.emit("relaunchForAll");
 	});
+
+	socket.on("startDemo", () => {
+		// Mode démo : ignoré si une vraie partie est en cours
+		if (gameInProgress) return;
+		startDemo();
+	});
 	  		
 });
 
@@ -350,6 +356,7 @@ function isEmpty(obj) {
 setInterval(gameUpdate, 1000/60); // 60 fps ;)
 
 function gameUpdate() {
+	if (gameInProgress) updateBots(); // IA des bots du mode démo
 	for (const playerId in players) {
 		if (players[playerId].alive) {
 			if (players[playerId].framesHurt > 0) players[playerId].framesHurt--;
@@ -502,5 +509,95 @@ function checkRemainingTeams() {
 		let winningTeam = activeTeams[0];
 		if (debug) console.log(winningTeam+" won");
 		endGame(winningTeam);
+	}
+}
+
+// ============ Mode démo : bots pilotés automatiquement ============
+// Déclenché par la page /demo.html (spectateur) via l'événement 'startDemo'.
+
+function startDemo() {
+	// Nettoyage d'une éventuelle partie précédente
+	for (const playerId in players) delete players[playerId];
+	for (const waiterId in waiters) delete waiters[waiterId];
+	nbPlayers = 0;
+	gameInProgress = true;
+	const demoNames = ['RoboCop', 'Algo', 'Pixel', 'Byte'];
+	for (let i = 0; i < 4; i++) { // 2 contre 2
+		const team = (i % 2 === 0) ? 'A' : 'B';
+		const player = {
+			id: 'bot-'+i,
+			alive: true,
+			lifepoints: maxLP,
+			ammo: maxAM,
+			size: 20,
+			scores: { hit: 0, kill: 0, ff: 0, fk: 0 },
+			username: demoNames[i],
+			team: team,
+			framesHurt: 0,
+			movement: { up: false, down: false, left: false, right: false },
+			angle: 0,
+			bot: { moveUntil: 0, cooldown: 60 + Math.floor(Math.random()*180) }
+		};
+		if (team == 'A') { player.x = 2 + i*40; player.y = 2; }
+		else { player.x = map.width - 22 - i*40; player.y = map.height - 22; }
+		players[player.id] = player;
+		nbPlayers += 1;
+	}
+	io.emit('mapSize', { width: map.width, height: map.height });
+	io.emit('obstacles', obstacles);
+	io.emit('players', players);
+	io.emit('gameStarted', players);
+	if (debug) console.log(nbPlayers + " bots lancés en mode démo");
+}
+
+function updateBots() {
+	for (const playerId in players) {
+		const player = players[playerId];
+		if (!player.bot || !player.alive) continue;
+		const b = player.bot;
+
+		// Cible : l'ennemi vivant le plus proche
+		let target = null;
+		let bestDist = Infinity;
+		for (const otherId in players) {
+			const other = players[otherId];
+			if (other.alive && other.team !== player.team) {
+				const dist = Math.hypot(other.x - player.x, other.y - player.y);
+				if (dist < bestDist) { bestDist = dist; target = other; }
+			}
+		}
+
+		// Viser la cible
+		if (target) player.angle = Math.atan2(target.y - player.y, target.x - player.x);
+
+		// Déplacement : changement de direction toutes les 0,5 à 2 s, biaisé vers la cible
+		if (Date.now() >= b.moveUntil) {
+			const dirs = ['up', 'down', 'left', 'right'];
+			dirs.forEach(d => player.movement[d] = false);
+			let dir = dirs[Math.floor(Math.random() * 4)];
+			if (target) {
+				if (Math.abs(target.x - player.x) > 60) dir = (target.x > player.x) ? 'right' : 'left';
+				else if (Math.abs(target.y - player.y) > 60) dir = (target.y > player.y) ? 'down' : 'up';
+			}
+			player.movement[dir] = true;
+			b.moveUntil = Date.now() + 500 + Math.floor(Math.random() * 1500);
+		}
+
+		// Rechargement puis tir sur la cible (fireBullet gère murs/impacts/dégâts)
+		if (player.ammo <= 0) { player.ammo = maxAM; b.cooldown = 90; }
+		if (target && b.cooldown <= 0) {
+			const px = player.x + 10;
+			const py = player.y + 10;
+			const delX = target.x + 10 - px;
+			const delY = target.y + 10 - py;
+			const dist = Math.hypot(delX, delY);
+			if (dist > 0) {
+				const ratio = mapDiag / dist;
+				fireBullet(px, py, px + ratio * delX, py + ratio * delY, playerId);
+				player.ammo -= 1;
+				b.cooldown = 60 + Math.floor(Math.random() * 120); // ~1 à 3 s entre deux tirs
+			}
+		}
+		else b.cooldown--;
 	}
 }

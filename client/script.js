@@ -28,6 +28,11 @@ canvasShoot.height = 400;
 canvasPlayer.height = 400;
 let pid = "";
 
+// Mode démo (/demo.html) : spectateur de bots
+const IS_DEMO = document.body.hasAttribute('data-demo');
+let spectateId = null;      // joueur suivi par la caméra
+let spectateSwitch = false; // demande de changement de cible
+
 const debug = false;
 
 let gameInProgress = false;
@@ -71,6 +76,14 @@ socket.on('mapSize', ({ width, height }) => {
 	obstBuffer.width = mapW;
 	obstBuffer.height = mapH;
 });
+
+if (IS_DEMO) {
+	// Lancer la démo dès la connexion au serveur
+	if (socket.connected) socket.emit('startDemo');
+	else socket.on('connect', () => socket.emit('startDemo'));
+	// Caméra : changer de joueur suivi toutes les 4 secondes
+	setInterval(() => { spectateSwitch = true; }, 4000);
+}
 
 loginForm.addEventListener('submit', (event) => {
 	event.preventDefault();
@@ -227,6 +240,13 @@ socket.on('gameStarted', (players) => {
 		document.getElementById('login-screen').style.display = 'none';
 		gameContainer.style.display = 'grid';		
 	}
+	if (IS_DEMO) {
+		// Spectateur : pas de joueur réel, on regarde les bots s'affronter
+		gameInProgress = true;
+		document.getElementById('login-screen').style.display = 'none';
+		document.getElementById('scores').style.display = 'none';
+		gameContainer.style.display = 'grid';
+	}
 	// V2 du mouvement côté serveur
 	// setInterval(updateFreq, 1000/60);
 });
@@ -234,7 +254,7 @@ socket.on('gameStarted', (players) => {
 socket.on('gameEnded', ({players, launcherId, winningTeam}) => {
 	// clearInterval(refreshIntervalId);
 	gameInProgress = false;
-	if (players[socket.id]) showScores(players, winningTeam);
+	if (players[socket.id] || IS_DEMO) showScores(players, winningTeam);
 	if (pid == launcherId) printRelaunch();
 	document.getElementById("reload").style.display = "none";
 });
@@ -356,10 +376,26 @@ function stopMovement(direction) {
 socket.on('updateAnglesAndPositions', (players) => {
 	ctxPlayer.setTransform(1, 0, 0, 1, 0, 0);
 	ctxPlayer.clearRect(0, 0, canvasPlayer.width, canvasPlayer.height);
-	if (gameInProgress && living && players[pid]) {
-		// Caméra centrée sur le joueur, bornée aux limites de la carte
-		camX = Math.max(0, Math.min(players[pid].x + 10 - canvas.width / 2, mapW - canvas.width));
-		camY = Math.max(0, Math.min(players[pid].y + 10 - canvas.height / 2, mapH - canvas.height));
+	// Cible de la caméra : mon joueur, ou (mode démo) un bot suivi
+	let camId = null;
+	if (IS_DEMO) {
+		const aliveIds = Object.keys(players).filter(id => players[id].alive);
+		if (aliveIds.length > 0) {
+			if (spectateSwitch || !spectateId || !players[spectateId] || !players[spectateId].alive) {
+				const idx = aliveIds.indexOf(spectateId);
+				spectateId = aliveIds[(idx + 1) % aliveIds.length];
+				spectateSwitch = false;
+			}
+			camId = spectateId;
+		}
+	}
+	else if (gameInProgress && living && players[pid]) {
+		camId = pid;
+	}
+	if (camId) {
+		// Caméra centrée sur la cible, bornée aux limites de la carte
+		camX = Math.max(0, Math.min(players[camId].x + 10 - canvas.width / 2, mapW - canvas.width));
+		camY = Math.max(0, Math.min(players[camId].y + 10 - canvas.height / 2, mapH - canvas.height));
 
 		// Décor : fenêtre caméra dans le monde
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -382,8 +418,8 @@ socket.on('updateAnglesAndPositions', (players) => {
 					else ctxPlayer.drawImage(imgP3, -10, -10, 20, 20);
 				}
 				ctxPlayer.restore();
-				if (playerId == pid) { 
-					refreshMaskView(players[playerId].x, players[playerId].y); 
+				if (playerId == camId) {
+					refreshMaskView(players[playerId].x, players[playerId].y);
 				}
 			}
 			// Dessin des joueurs morts
@@ -399,6 +435,14 @@ socket.on('updateAnglesAndPositions', (players) => {
 				}
 				ctxPlayer.restore();
 			}
+		}
+
+		// (mode démo) HUD lié au joueur suivi
+		if (IS_DEMO) {
+			const lc = document.getElementById('lifepoints');
+			lc.max = players[camId].lifepoints;
+			lc.value = players[camId].lifepoints;
+			document.getElementById('ammo').value = players[camId].ammo;
 		}
 	}
 });
