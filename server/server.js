@@ -34,6 +34,7 @@ function isFiniteNumber(v) {
 let nbPlayers = 0; // Nb de joueurs VIVANTS
 let gameInProgress = false;
 let launcherId = 0;
+let demoStartedAt = 0; // Date de lancement de la partie démo en cours (0 = pas de démo)
 
 // Ajoutez un objet pour stocker les points de vie des joueurs
 const players = {};
@@ -182,17 +183,17 @@ io.on('connection', (socket) => {
 
 	socket.on('disconnect', () => {
 		if (debug) console.log('user disconnected');
+		const wasPlayer = !!players[socket.id];
 		delete waiters[socket.id];
 		delete players[socket.id];
 		io.emit('updateTeams', Object.values(waiters));
-		if (gameInProgress) {
+		if (gameInProgress && wasPlayer) {
 			nbPlayers -= 1;
 			io.emit('players', players);
-		// io.emit('updateTeams', Object.values(waiters));
 			if (debug) console.log("Nbplayers alive "+nbPlayers);
 			checkRemainingTeams();
 		}
-	});	
+	});
 
 	socket.on('shoot', ({ mouseX, mouseY }) => {
 		const player = players[socket.id];
@@ -287,8 +288,13 @@ io.on('connection', (socket) => {
 	});
 
 	socket.on("startDemo", () => {
-		// Mode démo : ignoré si une vraie partie est en cours
-		if (gameInProgress) return;
+		if (gameInProgress) {
+			const humans = Object.keys(players).some(id => !players[id].bot);
+			// Une vraie partie (avec joueurs humains) est en cours : on ignore la demande
+			if (humans) return;
+			// Une partie démo tourne déjà : on la relance proprement pour accueillir le spectateur
+			stopDemo();
+		}
 		startDemo();
 	});
 	  		
@@ -548,6 +554,7 @@ function startDemo() {
 		players[player.id] = player;
 		nbPlayers += 1;
 	}
+	demoStartedAt = Date.now();
 	io.emit('mapSize', { width: map.width, height: map.height });
 	io.emit('obstacles', obstacles);
 	io.emit('players', players);
@@ -555,7 +562,36 @@ function startDemo() {
 	if (debug) console.log(nbPlayers + " bots lancés en mode démo");
 }
 
+function stopDemo() {
+	demoStartedAt = 0;
+	for (const playerId in players) delete players[playerId];
+	nbPlayers = 0;
+	gameInProgress = false;
+}
+
+// Vrai ligne de vue : ni mur, ni coéquipier sur la trajectoire
+function botHasCleanShot(px, py, tx, ty, shooterId, shooterTeam) {
+	for (const obstacleId in obstacles) {
+		const obst = obstacles[obstacleId];
+		if (lineRect(px, py, tx, ty, obst.x, obst.y, obst.w, obst.h).test) return false;
+	}
+	for (const playerId in players) {
+		const other = players[playerId];
+		if (playerId !== shooterId && other.alive && other.team === shooterTeam) {
+			if (lineRect(px, py, tx, ty, other.x, other.y, other.size, other.size).test) return false;
+		}
+	}
+	return true;
+}
+
 function updateBots() {
+	// Garde-fou : si la partie démo s'enlise (aucune issue après 2 min), on la relance
+	if (demoStartedAt && (Date.now() - demoStartedAt) > 2*60*1000) {
+		if (debug) console.log("Démo bloquée : relance automatique");
+		stopDemo();
+		startDemo();
+		return;
+	}
 	for (const playerId in players) {
 		const player = players[playerId];
 		if (!player.bot || !player.alive) continue;
@@ -575,20 +611,41 @@ function updateBots() {
 		// Viser la cible
 		if (target) player.angle = Math.atan2(target.y - player.y, target.x - player.x);
 
+		// Anti-blocage : si le bot n'a presque pas bougé depuis 0,5 s,
+		// la prochaine direction sera purement aléatoire
+		if (!b.lastPos) b.lastPos = { x: player.x, y: player.y, frames: 0 };
+		b.lastPos.frames++;
+		if (b.lastPos.frames >= 30) {
+			if (Math.abs(player.x - b.lastPos.x) < 2 && Math.abs(player.y - b.lastPos.y) < 2) {
+				b.stuck = true;
+				b.moveUntil = 0;
+			}
+			b.lastPos = { x: player.x, y: player.y, frames: 0 };
+		}
+
 		// Déplacement : changement de direction toutes les 0,5 à 2 s, biaisé vers la cible
 		if (Date.now() >= b.moveUntil) {
 			const dirs = ['up', 'down', 'left', 'right'];
 			dirs.forEach(d => player.movement[d] = false);
-			let dir = dirs[Math.floor(Math.random() * 4)];
-			if (target) {
-				if (Math.abs(target.x - player.x) > 60) dir = (target.x > player.x) ? 'right' : 'left';
-				else if (Math.abs(target.y - player.y) > 60) dir = (target.y > player.y) ? 'down' : 'up';
+			let dir;
+			if (b.stuck || !target || Math.random() < 0.3) {
+				dir = dirs[Math.floor(Math.random() * 4)];
+			}
+			else if (Math.abs(target.x - player.x) > 60) {
+				dir = (target.x > player.x) ? 'right' : 'left';
+			}
+			else if (Math.abs(target.y - player.y) > 60) {
+				dir = (target.y > player.y) ? 'down' : 'up';
+			}
+			else {
+				dir = dirs[Math.floor(Math.random() * 4)];
 			}
 			player.movement[dir] = true;
 			b.moveUntil = Date.now() + 500 + Math.floor(Math.random() * 1500);
+			b.stuck = false;
 		}
 
-		// Rechargement puis tir sur la cible (fireBullet gère murs/impacts/dégâts)
+		// Rechargement puis tir — uniquement à condition de vraiment voir la cible
 		if (player.ammo <= 0) { player.ammo = maxAM; b.cooldown = 90; }
 		if (target && b.cooldown <= 0) {
 			const px = player.x + 10;
@@ -596,11 +653,14 @@ function updateBots() {
 			const delX = target.x + 10 - px;
 			const delY = target.y + 10 - py;
 			const dist = Math.hypot(delX, delY);
-			if (dist > 0) {
+			if (dist > 0 && botHasCleanShot(px, py, target.x + 10, target.y + 10, playerId, player.team)) {
 				const ratio = mapDiag / dist;
 				fireBullet(px, py, px + ratio * delX, py + ratio * delY, playerId);
 				player.ammo -= 1;
 				b.cooldown = 60 + Math.floor(Math.random() * 120); // ~1 à 3 s entre deux tirs
+			}
+			else {
+				b.cooldown = 30; // réévaluer la ligne de vue rapidement
 			}
 		}
 		else b.cooldown--;

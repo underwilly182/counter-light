@@ -18,3 +18,14 @@ socket.on('gameEnded', () => {
 		setTimeout(() => socket.emit('startDemo'), 6000);
 	}
 });
+
+// Garde-fou : si la démo semble plantée (plus aucune mise à jour du serveur
+// depuis 15 s), on redemande une partie démo
+let lastServerUpdate = Date.now();
+socket.on('updateAnglesAndPositions', () => { lastServerUpdate = Date.now(); });
+setInterval(() => {
+	if (document.body.hasAttribute('data-demo') && Date.now() - lastServerUpdate > 15000) {
+		lastServerUpdate = Date.now();
+		socket.emit('startDemo');
+	}
+}, 5000);
