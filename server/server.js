@@ -105,7 +105,7 @@ app.use((req, res, next) => {
 	res.setHeader('X-Content-Type-Options', 'nosniff');
 	res.setHeader('X-Frame-Options', 'DENY');
 	res.setHeader('Referrer-Policy', 'no-referrer');
-	res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; media-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self'");
+	res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; media-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
 	next();
 });
 app.use(express.static('client', { dotfiles: 'ignore' }));
