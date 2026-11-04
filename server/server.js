@@ -199,7 +199,7 @@ io.on('connection', (socket) => {
 		if (launcherId === socket.id) {
 			launcherId = 0;
 			const firstId = Object.keys(waiters)[0];
-			if (firstId && !gameInProgress) {
+			if (firstId && (!gameInProgress || demoStartedAt)) {
 				launcherId = firstId;
 				io.to(firstId).emit('enableStartButton');
 			}
@@ -251,9 +251,9 @@ io.on('connection', (socket) => {
 		io.emit('updateTeams', Object.values(waiters)); // Convertit l'objet en tableau pour l'envoi
 		// Le bouton "Commencer la partie" appartient à un "lanceur" (host) :
 		// le premier joueur validé, ou son remplaçant si le précédent est parti.
-		// On réémet l'activation à chaque arrivée, tant qu'aucune partie humaine
-		// n'est en cours (une démo en cours ne bloque pas le lobby).
-		if (!gameInProgress) {
+		// On réémet l'activation à chaque arrivée. Une partie démo en cours ne
+		// bloque pas le lobby (le lancement humain stoppera la démo).
+		if (!gameInProgress || demoStartedAt) {
 			if (!launcherId || !waiters[launcherId]) {
 				launcherId = socket.id;
 			}
@@ -340,6 +340,15 @@ io.on('connection', (socket) => {
 			stopDemo();
 		}
 		startDemo();
+	});
+
+	socket.on("stopDemo", () => {
+		// Bouton "Arrêter la démo" de la page /demo.html : stoppe immédiatement
+		// la partie de bots et remet le serveur au repos pour le lobby.
+		if (demoStartedAt) {
+			stopDemo();
+			io.emit('demoStopped');
+		}
 	});
 
 	// ==================== Chan vocal d'équipe ====================

@@ -14,9 +14,18 @@ function fitToScreen() {
 window.addEventListener('resize', fitToScreen);
 fitToScreen();
 
+// Arrêt manuel : une fois la démo stoppée par le bouton, cette page ne doit
+// plus jamais la relancer toute seule (watchdog, relance après fin de partie).
+let demoStoppedByUser = false;
+document.getElementById('kill-demo-btn').addEventListener('click', () => {
+	demoStoppedByUser = true;
+	socket.emit('stopDemo');
+	document.getElementById('demo-stopped-msg').style.display = 'block';
+});
+
 // Relance automatique de la démo quelques secondes après la fin de la partie
 socket.on('gameEnded', () => {
-	if (document.body.hasAttribute('data-demo')) {
+	if (document.body.hasAttribute('data-demo') && !demoStoppedByUser) {
 		setTimeout(() => socket.emit('startDemo'), 6000);
 	}
 });
@@ -26,7 +35,7 @@ socket.on('gameEnded', () => {
 let lastServerUpdate = Date.now();
 socket.on('updateAnglesAndPositions', () => { lastServerUpdate = Date.now(); });
 setInterval(() => {
-	if (document.body.hasAttribute('data-demo') && Date.now() - lastServerUpdate > 15000) {
+	if (document.body.hasAttribute('data-demo') && !demoStoppedByUser && Date.now() - lastServerUpdate > 15000) {
 		lastServerUpdate = Date.now();
 		socket.emit('startDemo');
 	}
