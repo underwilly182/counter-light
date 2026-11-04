@@ -194,6 +194,16 @@ io.on('connection', (socket) => {
 		delete waiters[socket.id];
 		delete players[socket.id];
 		io.emit('updateTeams', Object.values(waiters));
+		// Si le lanceur (host) part, on promeut le premier joueur restant :
+		// le bouton "Commencer la partie" doit toujours être actif quelque part.
+		if (launcherId === socket.id) {
+			launcherId = 0;
+			const firstId = Object.keys(waiters)[0];
+			if (firstId && !gameInProgress) {
+				launcherId = firstId;
+				io.to(firstId).emit('enableStartButton');
+			}
+		}
 		// Chan vocal : le joueur parti est retiré du roster et de l'écoute de son équipe
 		for (const t of ['A', 'B']) {
 			const idx = voiceRoster[t].indexOf(socket.id);
@@ -239,13 +249,24 @@ io.on('connection', (socket) => {
 		// console.log(nbPlayers + " player(s)");
 		// io.emit('updateTeams', Object.values(players)); // Convertit l'objet en tableau pour l'envoi
 		io.emit('updateTeams', Object.values(waiters)); // Convertit l'objet en tableau pour l'envoi
-		if (Object.keys(waiters).length === 1 && gameInProgress == false) {
-			socket.emit('enableStartButton');
-			launcherId = socket.id;
+		// Le bouton "Commencer la partie" appartient à un "lanceur" (host) :
+		// le premier joueur validé, ou son remplaçant si le précédent est parti.
+		// On réémet l'activation à chaque arrivée, tant qu'aucune partie humaine
+		// n'est en cours (une démo en cours ne bloque pas le lobby).
+		if (!gameInProgress) {
+			if (!launcherId || !waiters[launcherId]) {
+				launcherId = socket.id;
+			}
+			io.to(launcherId).emit('enableStartButton');
 		}
 	});
 
 	socket.on('startGame', ({ voiceChat } = {}) => {
+		// Une partie démo en cours est stoppée : la vraie partie prend la main
+		if (demoStartedAt) {
+			stopDemo();
+			io.emit('mapSize', { width: map.width, height: map.height });
+		}
 		// L'host peut activer les chans vocaux pour cette partie
 		voiceChatEnabled = (voiceChat === true);
 		voiceRoster.A = [];

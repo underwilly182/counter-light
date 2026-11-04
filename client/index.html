@@ -45,10 +45,12 @@
 	<div id="game" style="display: none;">
 		<div id="map"></div>
 		<div id="playerContainer"></div>
+		<!-- Ordre = ordre d'empilement CSS : le décor (gameCanvas) doit être
+		     SOUS les joueurs, sinon il masque le jeu -->
+		<canvas id="gameCanvas"></canvas>
 		<canvas id="playerCanvas"></canvas>
 		<canvas id="shootCanvas"></canvas>
 		<canvas id="shadowCanvas"></canvas>
-		<canvas id="gameCanvas"></canvas>
 		<div id="impactContainer"></div>
 		<div id="ammo-label" class="labels">Munitions</div>
 		<progress value="6" max="6" id="ammo"></progress>
