@@ -40,12 +40,54 @@ let living = false;
 let reloading = false;
 let ammo = 0;
 
-	let bang = new Audio('./snd/gunshot-sound-effect.mp3');
-	bang.load();
-	let gun_reload = new Audio('./snd/guncocking.mp3');
-	gun_reload.load();
-	let clic = new Audio('./snd/gunclick.mp3');
-	clic.load();
+// ---- Préchargement des sons (Web Audio) ----
+// Lancé dès l'arrivée dans le lobby : les fichiers sont téléchargés ET décodés
+// en mémoire pendant que le joueur remplit le formulaire, ce qui supprime tout
+// lag à la première lecture en jeu (l'ancien new Audio() + cloneNode() redécodait
+// le son à chaque premier play()).
+let audioCtx = null;
+const soundBuffers = {};
+
+function getAudioCtx() {
+	if (!audioCtx) {
+		const Ctx = window.AudioContext || window.webkitAudioContext;
+		if (Ctx) audioCtx = new Ctx();
+	}
+	return audioCtx;
+}
+
+async function preloadSound(name, url) {
+	const ctx = getAudioCtx();
+	if (!ctx) return;
+	try {
+		const resp = await fetch(url);
+		const buf = await resp.arrayBuffer();
+		soundBuffers[name] = await ctx.decodeAudioData(buf);
+		if (debug) console.log("Son préchargé : " + name);
+	} catch (e) {
+		console.warn("Préchargement impossible pour " + name, e);
+	}
+}
+
+// Rejoue un son déjà décodé (instantané). Reprise du contexte si le
+// navigateur l'avait suspendu (politique de lecture automatique).
+function playSound(name, volume) {
+	const ctx = getAudioCtx();
+	if (!ctx || !soundBuffers[name]) return;
+	if (ctx.state === 'suspended') ctx.resume();
+	const src = ctx.createBufferSource();
+	src.buffer = soundBuffers[name];
+	const gain = ctx.createGain();
+	gain.gain.value = (typeof volume === 'number') ? volume : 1;
+	src.connect(gain);
+	gain.connect(ctx.destination);
+	src.start();
+}
+
+// Préchargement en arrière-plan pendant le lobby
+preloadSound('bang', './snd/gunshot-sound-effect.mp3');
+preloadSound('gun_reload', './snd/guncocking.mp3');
+preloadSound('clic', './snd/gunclick.mp3');
 	
 	let imgImp = new Image();
 	imgImp.src = './img/impact.png';
@@ -108,8 +150,7 @@ document.addEventListener('mousedown', () => {
 		ammoUpdate();
 		if (debug) console.log("Ammo -1");
 		// déplacer ça dans socket.on'shotHeard'
-		// bang.load();
-		bang.cloneNode(true).play();
+		playSound('bang');
 		//console.log("PAN");
 		//For debug only
 		/* ctx.moveTo(pidX+10, pidY+10);
@@ -122,8 +163,7 @@ document.addEventListener('mousedown', () => {
 		}
 	}
 	else if(ammo == 0 && gameInProgress && living) {
-		// clic.load();
-		clic.cloneNode(true).play();
+		playSound('clic');
 		// document.getElementById("reload").style.display = "block";
 	}
 });
@@ -167,8 +207,7 @@ document.addEventListener('keydown', (event) => {
 				if (!reloading && ammo < 6) {
 					document.getElementById("reload").style.display = "none";
 					reloading = true;
-					// gun_reload.load();
-					gun_reload.cloneNode(true).play();
+					playSound('gun_reload');
 					setTimeout(() => {
 						ammo = 6;
 						reloading = false;
