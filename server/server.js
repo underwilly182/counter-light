@@ -595,9 +595,9 @@ function startDemo() {
 	for (const waiterId in waiters) delete waiters[waiterId];
 	nbPlayers = 0;
 	gameInProgress = true;
-	const demoNames = ['RoboCop', 'Algo', 'Pixel', 'Byte'];
-	for (let i = 0; i < 4; i++) { // 2 contre 2
-		const team = (i % 2 === 0) ? 'A' : 'B';
+	const demoNames = pickDemoNames(6);
+	for (let i = 0; i < 6; i++) { // 3 contre 3
+		const team = (i < 3) ? 'A' : 'B';
 		const player = {
 			id: 'bot-'+i,
 			alive: true,
@@ -610,10 +610,16 @@ function startDemo() {
 			framesHurt: 0,
 			movement: { up: false, down: false, left: false, right: false },
 			angle: 0,
-			bot: { moveUntil: 0, cooldown: 60 + Math.floor(Math.random()*180) }
+			bot: {
+				index: i,
+				moveUntil: 0,
+				cooldown: 30 + Math.floor(Math.random()*90),
+				waypoint: null,
+				waypointAt: 0
+			}
 		};
-		if (team == 'A') { player.x = 2 + i*40; player.y = 2; }
-		else { player.x = map.width - 22 - i*40; player.y = map.height - 22; }
+		if (team == 'A') { player.x = 2 + (i%3)*40; player.y = 2; }
+		else { player.x = map.width - 22 - (i%3)*40; player.y = map.height - 22; }
 		players[player.id] = player;
 		nbPlayers += 1;
 	}
@@ -640,6 +646,40 @@ function stopDemo() {
 	io.emit('voice-chat-end');
 }
 
+// Noms aléatoires pour les bots (tirage sans doublon)
+const DEMO_NAME_POOL = ['V1PER','NYX','RAZOR','BOLT','GHOST','FURY','ONYX','ZERO','HAVOC','DELTA','ECHO','FALCON','JINX','KRAIT','QUBIT','MAKO'];
+function pickDemoNames(n) {
+	const pool = DEMO_NAME_POOL.slice();
+	for (let i = pool.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[pool[i], pool[j]] = [pool[j], pool[i]];
+	}
+	return pool.slice(0, n).map(name => name + '-' + (10 + Math.floor(Math.random()*90)));
+}
+
+// Point de recherche personnel : chaque bot fouille sa propre zone de la carte
+// (grille 3x2), ce qui force l'équipe à se séparer pour chercher les ennemis.
+function pickSearchWaypoint(index) {
+	const col = index % 3;
+	const row = Math.floor(index / 3) % 2;
+	return {
+		x: col * (map.width / 3) + 30 + Math.random() * (map.width / 3 - 60),
+		y: row * (map.height / 2) + 30 + Math.random() * (map.height / 2 - 60)
+	};
+}
+
+// Détection : ligne de vue sur les murs uniquement (un coéquipier devant
+// ne doit pas empêcher de repérer l'ennemi, seulement de tirer).
+function botSeesEnemy(px, py, enemy) {
+	const tx = enemy.x + 10;
+	const ty = enemy.y + 10;
+	for (const obstacleId in obstacles) {
+		const obst = obstacles[obstacleId];
+		if (lineRect(px, py, tx, ty, obst.x, obst.y, obst.w, obst.h).test) return false;
+	}
+	return true;
+}
+
 // Vrai ligne de vue : ni mur, ni coéquipier sur la trajectoire
 function botHasCleanShot(px, py, tx, ty, shooterId, shooterTeam) {
 	for (const obstacleId in obstacles) {
@@ -663,23 +703,44 @@ function updateBots() {
 		startDemo();
 		return;
 	}
+
+	// ---- Phase 1 : intel d'équipe ----
+	// Chaque bot scanne ses ennemis (ligne de vue + rayon de détection).
+	// Le meilleur contact de chaque équipe est partagé : toute l'équipe
+	// se coordonne sur cette cible unique (focus fire).
+	const intel = { A: null, B: null };
+	for (const playerId in players) {
+		const player = players[playerId];
+		if (!player.bot || !player.alive) continue;
+		const px0 = player.x + 10;
+		const py0 = player.y + 10;
+		let spotted = null;
+		let spottedDist = Infinity;
+		for (const otherId in players) {
+			const other = players[otherId];
+			if (!other.alive || other.team === player.team) continue;
+			const d = Math.hypot(other.x + 10 - px0, other.y + 10 - py0);
+			if (d < 450 && d < spottedDist && botSeesEnemy(px0, py0, other)) {
+				spotted = other;
+				spottedDist = d;
+			}
+		}
+		if (spotted && (!intel[player.team] || spottedDist < intel[player.team].dist)) {
+			intel[player.team] = { target: spotted, dist: spottedDist };
+		}
+	}
+
+	// ---- Phase 2 : action de chaque bot ----
 	for (const playerId in players) {
 		const player = players[playerId];
 		if (!player.bot || !player.alive) continue;
 		const b = player.bot;
 
-		// Cible : l'ennemi vivant le plus proche
-		let target = null;
-		let bestDist = Infinity;
-		for (const otherId in players) {
-			const other = players[otherId];
-			if (other.alive && other.team !== player.team) {
-				const dist = Math.hypot(other.x - player.x, other.y - player.y);
-				if (dist < bestDist) { bestDist = dist; target = other; }
-			}
-		}
+		// Cible coordonnée : celle que l'équipe a repérée (pas seulement la plus proche de soi)
+		const teamIntel = intel[player.team];
+		const target = (teamIntel && teamIntel.target.alive) ? teamIntel.target : null;
 
-		// Viser la cible
+		// Viser la cible dès qu'elle est repérée
 		if (target) player.angle = Math.atan2(target.y - player.y, target.x - player.x);
 
 		// Anti-blocage : si le bot n'a presque pas bougé depuis 0,5 s,
@@ -694,30 +755,43 @@ function updateBots() {
 			b.lastPos = { x: player.x, y: player.y, frames: 0 };
 		}
 
-		// Déplacement : changement de direction toutes les 0,5 à 2 s, biaisé vers la cible
+		// Déplacement
 		if (Date.now() >= b.moveUntil) {
 			const dirs = ['up', 'down', 'left', 'right'];
 			dirs.forEach(d => player.movement[d] = false);
 			let dir;
-			if (b.stuck || !target || Math.random() < 0.3) {
+			if (b.stuck) {
+				// Débloquer : direction aléatoire
 				dir = dirs[Math.floor(Math.random() * 4)];
 			}
-			else if (Math.abs(target.x - player.x) > 60) {
-				dir = (target.x > player.x) ? 'right' : 'left';
-			}
-			else if (Math.abs(target.y - player.y) > 60) {
-				dir = (target.y > player.y) ? 'down' : 'up';
+			else if (target) {
+				// Attaque coordonnée : foncer vers la cible en zigzag (plus dur à toucher)
+				const dx = target.x - player.x;
+				const dy = target.y - player.y;
+				if (Math.abs(dx) > 25 && (Math.abs(dx) > Math.abs(dy) || Math.random() < 0.35)) dir = (dx > 0) ? 'right' : 'left';
+				else if (Math.abs(dy) > 25) dir = (dy > 0) ? 'down' : 'up';
+				else dir = dirs[Math.floor(Math.random() * 4)]; // très proche : strafe
 			}
 			else {
-				dir = dirs[Math.floor(Math.random() * 4)];
+				// Recherche : chaque bot file vers son propre waypoint (zones séparées)
+				if (!b.waypoint || Date.now() - b.waypointAt > 6000 ||
+					(Math.abs(b.waypoint.x - player.x) < 40 && Math.abs(b.waypoint.y - player.y) < 40)) {
+					b.waypoint = pickSearchWaypoint(b.index);
+					b.waypointAt = Date.now();
+				}
+				const dx = b.waypoint.x - player.x;
+				const dy = b.waypoint.y - player.y;
+				if (Math.abs(dx) > Math.abs(dy)) dir = (dx > 0) ? 'right' : 'left';
+				else dir = (dy > 0) ? 'down' : 'up';
 			}
 			player.movement[dir] = true;
-			b.moveUntil = Date.now() + 500 + Math.floor(Math.random() * 1500);
+			// Plus réactif en attaque, plus posé en recherche
+			b.moveUntil = Date.now() + (target ? 250 + Math.floor(Math.random()*450) : 400 + Math.floor(Math.random()*900));
 			b.stuck = false;
 		}
 
 		// Rechargement puis tir — uniquement à condition de vraiment voir la cible
-		if (player.ammo <= 0) { player.ammo = maxAM; b.cooldown = 90; }
+		if (player.ammo <= 0) { player.ammo = maxAM; b.cooldown = 60; }
 		if (target && b.cooldown <= 0) {
 			const px = player.x + 10;
 			const py = player.y + 10;
@@ -728,10 +802,10 @@ function updateBots() {
 				const ratio = mapDiag / dist;
 				fireBullet(px, py, px + ratio * delX, py + ratio * delY, playerId);
 				player.ammo -= 1;
-				b.cooldown = 60 + Math.floor(Math.random() * 120); // ~1 à 3 s entre deux tirs
+				b.cooldown = 25 + Math.floor(Math.random() * 55); // ~0,4 à 1,3 s : agressif
 			}
 			else {
-				b.cooldown = 30; // réévaluer la ligne de vue rapidement
+				b.cooldown = 15; // réévaluer la ligne de vue très rapidement
 			}
 		}
 		else b.cooldown--;
