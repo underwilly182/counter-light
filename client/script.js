@@ -536,6 +536,17 @@ socket.on('updateAnglesAndPositions', (players) => {
 					else ctxPlayer.drawImage(imgP3, -10, -10, 20, 20);
 				}
 				ctxPlayer.restore();
+				// Pseudo au-dessus du joueur (droit, non affecté par la rotation)
+				ctxPlayer.save();
+				ctxPlayer.translate(players[playerId].x+10, players[playerId].y+10);
+				ctxPlayer.font = '10px Courier';
+				ctxPlayer.textAlign = 'center';
+				ctxPlayer.lineWidth = 3;
+				ctxPlayer.strokeStyle = 'rgba(255,255,255,0.7)';
+				ctxPlayer.strokeText(players[playerId].username, 0, -13);
+				ctxPlayer.fillStyle = (players[playerId].team == "A") ? 'darkmagenta' : 'darkorange';
+				ctxPlayer.fillText(players[playerId].username, 0, -13);
+				ctxPlayer.restore();
 				if (playerId == camId) {
 					refreshMaskView(players[playerId].x, players[playerId].y);
 				}
