@@ -6,6 +6,9 @@
 let voiceLocalStream = null;
 const voicePeers = {}; // peerId -> RTCPeerConnection
 
+// Ferme la connexion WebRTC avec un coéquipier donné et retire son <audio>.
+// Param : peerId {string} identifiant Socket.IO du coéquipier.
+// Retour : aucun.
 function voiceClosePeer(peerId) {
 	const pc = voicePeers[peerId];
 	if (pc) {
@@ -18,6 +21,9 @@ function voiceClosePeer(peerId) {
 	if (el) el.remove();
 }
 
+// Démonte entièrement le chan vocal : ferme tous les peers et coupe le micro
+// local. Appelée en fin de partie ou si les chans vocaux sont désactivés.
+// Param : aucun — Retour : aucun.
 function voiceTeardown() {
 	for (const peerId in voicePeers) voiceClosePeer(peerId);
 	if (voiceLocalStream) {
@@ -26,6 +32,10 @@ function voiceTeardown() {
 	}
 }
 
+// Crée la connexion RTCPeerConnection vers un coéquipier (mesh WebRTC) :
+// partage le micro local, gère les candidats ICE et la lecture de son flux.
+// Param : peerId {string} identifiant Socket.IO du coéquipier.
+// Retour : {RTCPeerConnection} connexion prête pour offer/answer.
 function voiceCreatePeer(peerId) {
 	const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
 	voicePeers[peerId] = pc;

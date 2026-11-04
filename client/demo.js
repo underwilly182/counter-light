@@ -1,6 +1,8 @@
 // client/demo.js — spécifique à la page démo (/demo.html)
 
 // Adaptation à l'écran mobile : mise à l'échelle de la zone de jeu (800x500)
+// pour qu'elle tienne dans la fenêtre, sans jamais l'agrandir (scale max 1).
+// Param : aucun — Retour : aucun (modifie le style de #game).
 function fitToScreen() {
 	const g = document.getElementById('game');
 	const scale = Math.min(window.innerWidth / 800, (window.innerHeight - 10) / 500, 1);

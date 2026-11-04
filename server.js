@@ -14,6 +14,10 @@ const PORT = 3000;
 
 // ============ SÉCURITÉ : validation des entrées ============
 // Nettoie le pseudo : supprime les balises/caractères dangereux (anti-XSS) et limite la longueur
+// Nettoie un pseudo fourni par le client avant tout usage (anti-XSS) :
+// retire les balises et les caractères dangereux.
+// Param : raw {*} pseudo brut reçu du client.
+// Retour : {string} pseudo sûr, max 20 caractères ; 'Joueur' si vide/invalide.
 function sanitizeUsername(raw) {
 	if (typeof raw !== 'string') return 'Joueur';
 	let name = raw.replace(/<[^>]*>/g, '').replace(/[<>&"'`]/g, '').trim();
@@ -26,6 +30,7 @@ const VALID_DIRECTIONS = ['up', 'down', 'left', 'right'];
 const ROOM_ID_RE = /^[A-Za-z0-9_-]{1,64}$/; // Ids de salle WebRTC : alphanumériques uniquement
 
 // Vérifie qu'une valeur est un nombre fini (évite NaN / Infinity dans la géométrie)
+// Param : v {*} — Retour : {boolean} true si v est un nombre exploitable.
 function isFiniteNumber(v) {
 	return typeof v === 'number' && Number.isFinite(v);
 }
@@ -319,6 +324,10 @@ io.on('connection', (socket) => {
 	// ==================== Chan vocal d'équipe ====================
 	// Deux coéquipiers ne peuvent s'échanger de la signalisation que s'ils
 	// sont tous deux inscrits au chan vocal de la même équipe.
+	// Indique si deux joueurs sont inscrits au chan vocal de la même équipe
+	// (cloisonnement : empêche la signalisation WebRTC inter-équipes).
+	// Params : id1, id2 {string} identifiants Socket.IO.
+	// Retour : {boolean} true s'ils peuvent s'échanger de la signalisation.
 	function sameVoiceTeam(id1, id2) {
 		return (voiceRoster.A.includes(id1) && voiceRoster.A.includes(id2)) ||
 		       (voiceRoster.B.includes(id1) && voiceRoster.B.includes(id2));
@@ -360,6 +369,11 @@ server.listen(PORT, () => {
 });
 
 // LINE/RECTANGLE
+// Teste la collision entre un segment et un rectangle.
+// Params : (x1,y1)-(x2,y2) extrémités du segment ; (rx,ry) coin haut-gauche
+// du rectangle ; rw/rh sa largeur/hauteur.
+// Retour : {test:boolean} ; si test : {dist} distance de (x2,y2) à l'impact
+// le plus proche, {intX,intY} coordonnées de ce point d'impact.
 function lineRect(x1, y1, x2, y2, rx, ry, rw, rh) {
 	// check if the line has hit any of the rectangle's sides
 	// uses the Line/Line function below
@@ -388,7 +402,9 @@ function lineRect(x1, y1, x2, y2, rx, ry, rw, rh) {
 	return {test:false};
 }
 
-// LINE/LINE
+// LINE/LINE — intersection de deux segments [x1,y1]-[x2,y2] et [x3,y3]-[x4,y4].
+// Retour : {test:boolean} ; si test : {x,y} point d'intersection, {dist} sa
+// distance à (x2,y2).
 function lineLine(x1, y1, x2, y2, x3, y3, x4, y4) {
 
   // calculate the direction of the lines
@@ -410,6 +426,8 @@ function lineLine(x1, y1, x2, y2, x3, y3, x4, y4) {
   return {test:false};
 }
 
+// Indique si un objet ne contient aucune propriété propre.
+// Param : obj {Object} — Retour : {boolean} true si l'objet est vide.
 function isEmpty(obj) {
   for (const prop in obj) {
     if (Object.hasOwn(obj, prop)) {
@@ -421,6 +439,10 @@ function isEmpty(obj) {
 // Gameloop !!
 setInterval(gameUpdate, 1000/60); // 60 fps ;)
 
+// Boucle principale du jeu (~30 ticks/s) : fait vivre l'IA des bots (mode démo),
+// décrémente les états "hurt" puis déplace chaque joueur vivant, et diffuse
+// positions/angles à tous les clients.
+// Params : aucun — Retour : aucun (émet 'updateAnglesAndPositions').
 function gameUpdate() {
 	if (gameInProgress) updateBots(); // IA des bots du mode démo
 	for (const playerId in players) {
@@ -435,6 +457,9 @@ function gameUpdate() {
 	io.emit('updateAnglesAndPositions', players);
 }
 
+// Applique le déplacement (1 px/tick) d'un joueur selon ses touches actives,
+// après annulation des mouvements interdits par adaptMoveToObstacles.
+// Param : playerId {string} identifiant Socket.IO du joueur à déplacer.
 function updatePlayerPosition(playerId) {
 	const player = players[playerId];
 	adaptMoveToObstacles(playerId);
@@ -444,6 +469,9 @@ function updatePlayerPosition(playerId) {
 	if (player.movement.right) players[playerId].x += 1;
 }
 	
+// Annule le déplacement d'un joueur s'il l'amènerait dans un obstacle ou
+// hors de la carte (parcourt tous les obstacles à chaque tick).
+// Param : playerId {string} identifiant du joueur à contrôler.
 function adaptMoveToObstacles(playerId) {
 	const player = players[playerId];
 	for (const obstacleId in obstacles) {
@@ -467,6 +495,9 @@ function adaptMoveToObstacles(playerId) {
 	}
 }
 
+// Tue un joueur : alive=false, décrémente le compteur de vivants, coupe son
+// micro sur le chan vocal (il continue d'écouter), puis vérifie les équipes.
+// Param : playerId {string} identifiant du joueur à tuer.
 function killPlayer(playerId) {
 	if (debug) console.log("Killing "+playerId);
 	players[playerId].alive = false;
@@ -484,6 +515,9 @@ function killPlayer(playerId) {
 	checkRemainingTeams();
 }
 
+// Clôture la partie : stoppe la boucle de jeu, diffuse les scores et l'équipe
+// gagnante ('gameEnded'), et met fin aux chans vocaux.
+// Param : winningTeam {string} 'A' ou 'B'.
 function endGame(winningTeam) {
 	gameInProgress = false;
 	if (debug) console.log("Game ended");
@@ -495,6 +529,12 @@ function endGame(winningTeam) {
 	// Putting back players in waiters list
 }
 
+// Simule un tir complet : cherche le premier obstacle OU joueur touché sur la
+// trajectoire origine->cible, inflige les dégâts, diffuse les événements
+// d'impact/de trajectoire ('obstTouched', 'drawShoot', 'updateHealth') et
+// tue la cible si ses PV tombent à 0.
+// Params : px,py {number} origine du tir (centre du tireur) ; mx,my {number}
+// point visé ; pid {string} identifiant du tireur.
 function fireBullet(px, py, mx, my, pid) {
 	
 	// foreach obstacles, foreach players
@@ -562,6 +602,9 @@ function fireBullet(px, py, mx, my, pid) {
 }
   
 // Fonction pour vérifier s'il ne reste qu'une seule équipe active
+// Compte les joueurs vivants par équipe ; s'il ne reste zéro ou une seule
+// équipe, déclenche endGame avec l'équipe gagnante.
+// Params : aucun — Retour : aucun (appelle endGame si nécessaire).
 function checkRemainingTeams() {
   // Compter le nombre de joueurs actifs dans chaque équipe
 	if (debug) console.log("check R Teams");
@@ -589,6 +632,10 @@ function checkRemainingTeams() {
 // ============ Mode démo : bots pilotés automatiquement ============
 // Déclenché par la page /demo.html (spectateur) via l'événement 'startDemo'.
 
+// Lance une partie démo : vide l'état courant, crée 6 bots (3 contre 3) aux
+// coins opposés de la carte avec des noms aléatoires, désactive le chan vocal
+// et diffuse l'état initial ('mapSize', 'obstacles', 'players', 'gameStarted').
+// Params : aucun — Retour : aucun.
 function startDemo() {
 	// Nettoyage d'une éventuelle partie précédente
 	for (const playerId in players) delete players[playerId];
@@ -635,6 +682,9 @@ function startDemo() {
 	if (debug) console.log(nbPlayers + " bots lancés en mode démo");
 }
 
+// Arrête la partie démo : supprime tous les joueurs, remet le serveur au repos
+// et notifie les clients (fin du chan vocal).
+// Params : aucun — Retour : aucun.
 function stopDemo() {
 	demoStartedAt = 0;
 	for (const playerId in players) delete players[playerId];
@@ -646,7 +696,9 @@ function stopDemo() {
 	io.emit('voice-chat-end');
 }
 
-// Noms aléatoires pour les bots (tirage sans doublon)
+// Noms aléatoires pour les bots (tirage sans doublon).
+// Param : n {number} nombre de noms voulus.
+// Retour : {string[]} n noms uniques de la forme 'NOM-XX' (XX aléatoire).
 const DEMO_NAME_POOL = ['V1PER','NYX','RAZOR','BOLT','GHOST','FURY','ONYX','ZERO','HAVOC','DELTA','ECHO','FALCON','JINX','KRAIT','QUBIT','MAKO'];
 function pickDemoNames(n) {
 	const pool = DEMO_NAME_POOL.slice();
@@ -659,6 +711,8 @@ function pickDemoNames(n) {
 
 // Point de recherche personnel : chaque bot fouille sa propre zone de la carte
 // (grille 3x2), ce qui force l'équipe à se séparer pour chercher les ennemis.
+// Param : index {number} numéro du bot (0 à 5).
+// Retour : {{x:number, y:number}} coordonnées monde du waypoint à atteindre.
 function pickSearchWaypoint(index) {
 	const col = index % 3;
 	const row = Math.floor(index / 3) % 2;
@@ -670,6 +724,8 @@ function pickSearchWaypoint(index) {
 
 // Détection : ligne de vue sur les murs uniquement (un coéquipier devant
 // ne doit pas empêcher de repérer l'ennemi, seulement de tirer).
+// Params : px,py {number} position du bot ; enemy {Object} ennemi (players[id]).
+// Retour : {boolean} true si aucun mur ne bloque la vue.
 function botSeesEnemy(px, py, enemy) {
 	const tx = enemy.x + 10;
 	const ty = enemy.y + 10;
@@ -680,7 +736,10 @@ function botSeesEnemy(px, py, enemy) {
 	return true;
 }
 
-// Vrai ligne de vue : ni mur, ni coéquipier sur la trajectoire
+// Vrai ligne de vue pour tirer : ni mur, ni coéquipier sur la trajectoire.
+// Params : px,py {number} origine ; tx,ty {number} cible ; shooterId {string},
+// shooterTeam {'A'|'B'} tireur (pour exclure ses coéquipiers du test).
+// Retour : {boolean} true si le tir est possible sans toucher un allié/mur.
 function botHasCleanShot(px, py, tx, ty, shooterId, shooterTeam) {
 	for (const obstacleId in obstacles) {
 		const obst = obstacles[obstacleId];
@@ -695,6 +754,13 @@ function botHasCleanShot(px, py, tx, ty, shooterId, shooterTeam) {
 	return true;
 }
 
+// IA des bots du mode démo (appelée à chaque tick) :
+// 1) intel d'équipe : chaque bot repère l'ennemi visible le plus proche,
+//    le meilleur contact est partagé à toute l'équipe ;
+// 2) coordination : tous les coéquipiers convergent et tirent sur cette cible ;
+// 3) recherche : sans contact, chaque bot fouille sa propre zone (waypoint).
+// Garde-fou : relance automatique de la partie si elle s'enlise > 2 min.
+// Params : aucun — Retour : aucun (modifie players / émet les tirs).
 function updateBots() {
 	// Garde-fou : si la partie démo s'enlise (aucune issue après 2 min), on la relance
 	if (demoStartedAt && (Date.now() - demoStartedAt) > 2*60*1000) {

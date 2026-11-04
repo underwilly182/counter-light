@@ -48,6 +48,8 @@ let ammo = 0;
 let audioCtx = null;
 const soundBuffers = {};
 
+// Retourne (en la créant au premier appel) l'AudioContext global du navigateur.
+// Param : aucun — Retour : {AudioContext|null} null si le navigateur est incompatible.
 function getAudioCtx() {
 	if (!audioCtx) {
 		const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -56,6 +58,9 @@ function getAudioCtx() {
 	return audioCtx;
 }
 
+// Télécharge un son et le décode en mémoire pour une lecture instantanée.
+// Params : name {string} clé interne du son ; url {string} chemin du fichier.
+// Retour : {Promise<void>} (échec silencieux, avec warning console).
 async function preloadSound(name, url) {
 	const ctx = getAudioCtx();
 	if (!ctx) return;
@@ -71,6 +76,9 @@ async function preloadSound(name, url) {
 
 // Rejoue un son déjà décodé (instantané). Reprise du contexte si le
 // navigateur l'avait suspendu (politique de lecture automatique).
+// Params : name {string} clé du son (définie via preloadSound) ;
+// volume {number} gain optionnel, défaut 1.
+// Retour : aucun.
 function playSound(name, volume) {
 	const ctx = getAudioCtx();
 	if (!ctx || !soundBuffers[name]) return;
@@ -331,6 +339,63 @@ socket.on('disconnect', () => {
 	ammoContainer.max = ammo;
 }); */
 
+// Génère une tuile de sol béton en pixel-art (gris clair, bruit par pixel,
+// joints de dallage, fissures et taches), dessinée sur un canvas hors-écran.
+// La graine du hasard est fixe : la texture est identique pour tous les joueurs.
+// Param : size {number} côté de la tuile en pixels (défaut 64).
+// Retour : {HTMLCanvasElement} tuile prête pour ctx.createPattern(tile, "repeat").
+function buildConcreteTile(size = 64) {
+	const tile = document.createElement('canvas');
+	tile.width = size;
+	tile.height = size;
+	const tctx = tile.getContext('2d');
+	// PRNG déterministe
+	let seed = 0xC0FFEE;
+	const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+	tctx.fillStyle = '#8a8f94';
+	tctx.fillRect(0, 0, size, size);
+	// Bruit par pixel (aspect béton)
+	const imgData = tctx.getImageData(0, 0, size, size);
+	const d = imgData.data;
+	for (let i = 0; i < d.length; i += 4) {
+		const n = (rnd() - 0.5) * 22;
+		d[i] += n; d[i + 1] += n; d[i + 2] += n;
+	}
+	tctx.putImageData(imgData, 0, 0);
+	// Joints du dallage sur les bords haut/gauche (tuilable par construction)
+	tctx.fillStyle = '#6f7478';
+	tctx.fillRect(0, 0, size, 2);
+	tctx.fillRect(0, 0, 2, size);
+	tctx.fillStyle = 'rgba(255,255,255,0.08)';
+	tctx.fillRect(0, 2, size, 1);
+	tctx.fillRect(2, 0, 1, size);
+	// Fissures : petites marches aléatoires
+	tctx.strokeStyle = '#6b7075';
+	tctx.lineWidth = 1;
+	for (let c = 0; c < 3; c++) {
+		let x = 4 + rnd() * (size - 8);
+		let y = 4 + rnd() * (size - 8);
+		tctx.beginPath();
+		tctx.moveTo(x, y);
+		for (let s = 0; s < 6; s++) {
+			x += (rnd() - 0.5) * 10;
+			y += (rnd() - 0.5) * 10;
+			tctx.lineTo(x, y);
+		}
+		tctx.stroke();
+	}
+	// Taches sombres (usure)
+	tctx.fillStyle = 'rgba(60,64,68,0.18)';
+	for (let s = 0; s < 5; s++) {
+		tctx.beginPath();
+		tctx.arc(rnd() * size, rnd() * size, 2 + rnd() * 5, 0, Math.PI * 2);
+		tctx.fill();
+	}
+	return tile;
+}
+// Tuile de sol réutilisable pour tous les dessins du décor
+const concreteTile = buildConcreteTile(64);
+
 socket.on('obstacles', (obstacles) => {
 	// console.log("obstacles received");
 	obstaclesC = obstacles;
@@ -340,6 +405,9 @@ socket.on('obstacles', (obstacles) => {
 	img.src = "./img/brick-wall.jpg";
 	img.onload = () => {
 		ctxB.clearRect(0, 0, obstBuffer.width, obstBuffer.height);
+		// Sol : dallage béton sur toute la carte, derrière les obstacles
+		ctxB.fillStyle = ctxB.createPattern(concreteTile, "repeat");
+		ctxB.fillRect(0, 0, obstBuffer.width, obstBuffer.height);
 		const pattern = ctxB.createPattern(img, "repeat");
 		ctxB.fillStyle = pattern;
 		for (const obstacleId in obstacles) {
@@ -366,6 +434,8 @@ socket.on('drawShoot', ({px, py, hitX, hitY}) => {
 
 setInterval(clearShoot, 1000/10); // 10 fps pour le refresh du canvas des tirs ;)
 
+// Efface le canvas des lignes de tir (trajectoires).
+// Param : aucun — Retour : aucun.
 function clearShoot() {
 	ctxShoot.clearRect(0, 0, canvasShoot.width, canvasShoot.height);
 };
@@ -403,14 +473,18 @@ socket.on('gameOver', (remainingTeams) => {
 
 // let movement = { up: false, down: false, left: false, right: false };
 
-// Fonction pour activer les mouvements
+// Prévient le serveur qu'une direction de mouvement est activée.
+// Param : direction {string} 'up' | 'down' | 'left' | 'right'.
+// Retour : aucun (émet 'start-move').
 function startMovement(direction) {
 	// movement[direction] = true;
 	// V2 toggle
 	socket.emit('start-move', direction);
 }
 
-// Fonction pour désactiver les mouvements
+// Prévient le serveur qu'une direction de mouvement est relâchée.
+// Param : direction {string} 'up' | 'down' | 'left' | 'right'.
+// Retour : aucun (émet 'stop-move').
 function stopMovement(direction) {
 	// movement[direction] = false;
 	// V2 toggle
@@ -491,6 +565,11 @@ socket.on('updateAnglesAndPositions', (players) => {
 	}
 });
 
+// Redessine le masque d'ombres : obscurcit tout le viewport sauf les zones
+// visibles depuis le joueur (polygones dégagés construits autour de chaque
+// obstacle). Utilisé uniquement pour le joueur suivi par la caméra.
+// Params : px,py {number} coin haut-gauche du joueur (coordonnées monde).
+// Retour : aucun (dessine sur canvasS).
 function refreshMaskView(px, py) {
 	// console.log("refresh mask");
 	// Pour chaque obstacle
