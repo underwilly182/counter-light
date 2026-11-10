@@ -491,6 +491,16 @@ function stopMovement(direction) {
 	socket.emit('stop-move', direction);
 }
 
+// Déduit le secteur de la carte (découpage 3x3) à partir d'une position.
+// La carte est coupée en tiers : NO, N, NE / O, C, E / SO, S, SE.
+// Params : x, y {number} coordonnées monde.
+// Retour : {string} code du secteur ('NO', 'N', 'NE', 'O', 'C', 'E', 'SO', 'S', 'SE').
+function getSector(x, y) {
+	const col = (x < mapW / 3) ? 'O' : (x > 2 * mapW / 3) ? 'E' : 'C';
+	const row = (y < mapH / 3) ? 'N' : (y > 2 * mapH / 3) ? 'S' : '';
+	return row + col;
+}
+
 socket.on('updateAnglesAndPositions', (players) => {
 	ctxPlayer.setTransform(1, 0, 0, 1, 0, 0);
 	ctxPlayer.clearRect(0, 0, canvasPlayer.width, canvasPlayer.height);
@@ -514,6 +524,10 @@ socket.on('updateAnglesAndPositions', (players) => {
 		// Caméra centrée sur la cible, bornée aux limites de la carte
 		camX = Math.max(0, Math.min(players[camId].x + 10 - canvas.width / 2, mapW - canvas.width));
 		camY = Math.max(0, Math.min(players[camId].y + 10 - canvas.height / 2, mapH - canvas.height));
+
+		// Indicateur de secteur du joueur suivi par la caméra (HUD haut, centré)
+		const sectorEl = document.getElementById('sector-label');
+		if (sectorEl) sectorEl.textContent = 'Secteur : ' + getSector(players[camId].x, players[camId].y);
 
 		// Décor : fenêtre caméra dans le monde
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
