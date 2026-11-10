@@ -123,6 +123,11 @@ app.get('/demo', (req, res) => {
 	res.redirect('/demo.html');
 });
 
+// Raccourci : /demo-beta -> page de démo bêta (/demo-beta.html, pré-validation)
+app.get('/demo-beta', (req, res) => {
+	res.redirect('/demo-beta.html');
+});
+
 io.on('connection', (socket) => {
 	if (debug) console.log('a user connected, socketId '+socket.id);
 	

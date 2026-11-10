@@ -1,0 +1,51 @@
+<!-- client/demo-beta.html — démo BÊTA (pré-validation) : 6 bots, fenêtre de jeu adaptée plein écran -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+	<title>Counter Strike light — démo bêta</title>
+	<link rel="icon" type="image/x-icon" href="favicon.ico">
+	<link rel="stylesheet" type="text/css" href="./style.css" />
+</head>
+<body data-demo oncontextmenu="return false;" style="margin: 0; overflow: hidden; background: #111;">
+	<!-- Arrêt manuel de la démo : libère le serveur (relances locales coupées) -->
+	<button id="kill-demo-btn" style="position: fixed; top: 5px; right: 5px; font-family: Courier; font-size: 14px;">Arrêter la démo</button>
+	<div id="demo-stopped-msg" style="display: none; position: fixed; top: 40px; left: 50%; transform: translateX(-50%); font-family: Courier; background: black; color: white; padding: 8px 14px; z-index: 10;">Démo arrêtée — rechargez la page pour la relancer</div>
+
+	<!-- Écran de connexion conservé (masqué) pour la compatibilité de script.js -->
+	<div id="login-screen" style="display: none;">
+		<form id="login-form">
+			<input type="text" id="username">
+			<input type="radio" id="teamA" name="team" value="A">
+			<input type="radio" id="teamB" name="team" value="B">
+			<button id="send-info-btn">Envoyer</button>
+			<button id="start-game-btn" disabled>Commencer la partie</button>
+		</form>
+		<div id="team-info"><ul id="team-info-listA"></ul><ul id="team-info-listB"></ul></div>
+		<div id="how-to-play"></div>
+	</div>
+
+	<div id="game" style="display: none;">
+		<div id="map"></div>
+		<div id="playerContainer"></div>
+		<!-- Ordre = ordre d'empilement CSS : décor sous les joueurs -->
+		<canvas id="gameCanvas"></canvas>
+		<canvas id="playerCanvas"></canvas>
+		<canvas id="shootCanvas"></canvas>
+		<canvas id="shadowCanvas"></canvas>
+		<div id="impactContainer"></div>
+		<div id="ammo-label" class="labels">Munitions</div>
+		<progress value="6" max="6" id="ammo"></progress>
+		<div id="life-label" class="labels">Life</div>
+		<progress value="5" max="5" id="lifepoints"></progress>
+		<div id="sector-label" class="labels">Secteur : —</div>
+	</div>
+	<div id="scores" style="display: none;"></div>
+	<div id="reload" class="blink" style="display: none;">Press R to reload !</div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+  <script src="demo-beta.js"></script>
+</body>
+</html>
