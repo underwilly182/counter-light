@@ -9,17 +9,27 @@
 	<link rel="stylesheet" type="text/css" href="./style.css" />
 	<style>
 		/* ================= HUD bêta (uniquement sur cette page) =================
-		   Style "militaire translucide" : panneaux sombres floutés, barres
-		   néon arrondies, secteur doré lumineux. Les sélecteurs sont préfixés
-		   par body pour écraser style.css SANS impacter le vrai jeu. */
+		   Style "militaire translucide" : panneaux sombres, barres néon
+		   arrondies, secteur doré lumineux. Les sélecteurs sont préfixés par
+		   body pour écraser style.css SANS impacter le vrai jeu.
+		   IMPORTANT : chaque couche reçoit un z-index EXPLICITE pour garantir
+		   l'empilement (décor < joueurs < tirs < ombres < HUD), y compris sur
+		   mobile où transform + position fixed créent des contextes d'empilement. */
+		body #game { z-index: 1; }
+		body #map { z-index: 1; }
+		body #playerContainer { z-index: 2; }
+		body #gameCanvas { z-index: 3; }
+		body #playerCanvas { z-index: 4; }
+		body #shootCanvas { z-index: 5; }
+		body #shadowCanvas { z-index: 6; }
+		body #impactContainer { z-index: 7; }
 		body #ammo-label, body #life-label, body #sector-label {
+			z-index: 20;
 			background: rgba(10, 14, 18, 0.62);
 			border: 1px solid rgba(255, 255, 255, 0.22);
 			border-radius: 10px;
 			padding: 4px 12px;
 			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
-			backdrop-filter: blur(3px);
-			-webkit-backdrop-filter: blur(3px);
 			color: #e8edf2;
 			text-transform: uppercase;
 			letter-spacing: 2px;
@@ -40,6 +50,7 @@
 		}
 		/* Barres : fond sombre, valeur néon dégradée et lumineuse */
 		body #ammo, body #lifepoints {
+			z-index: 20;
 			height: 14px;
 			border-radius: 8px;
 			overflow: hidden;

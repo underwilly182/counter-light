@@ -54,6 +54,7 @@ function fitFullscreen() {
 	const vw = window.innerWidth;
 	const vh = window.innerHeight;
 	g.style.position = 'fixed';
+	g.style.zIndex = '1'; // au-dessus du fond, sous le bouton d'arrêt (z-index 10)
 	g.style.transformOrigin = 'top left';
 	g.style.transform = 'scale(' + scale + ')';
 	g.style.left = Math.max(0, (vw - 800 * scale) / 2) + 'px';
